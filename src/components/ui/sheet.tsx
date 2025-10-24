@@ -135,5 +135,6 @@ export {
   SheetHeader,
   SheetFooter,
   SheetTitle,
+  SheetOverlay,
   SheetDescription,
 }

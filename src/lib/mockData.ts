@@ -1,5 +1,5 @@
 // src/lib/mockData.ts
-import { Station, Reading, Alert, WaterQuality } from "@/types";
+import { Station, Reading, Alert, WaterQuality, WaterTrend } from "@/types";
 
 const stationsData: Omit<Station, "lastUpdated">[] = [
   {
@@ -8,7 +8,8 @@ const stationsData: Omit<Station, "lastUpdated">[] = [
     coordinates: [22.226102510029904, -105.00979212636152],
     quality: "Moderada",
     description: "Agua apta solo para riego.",
-    imageUrl: "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=800"
+    imageUrl: "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?w=800",
+    trend: "stable"
   },
   {
     id: "2",
@@ -16,7 +17,8 @@ const stationsData: Omit<Station, "lastUpdated">[] = [
     coordinates: [21.51585409995925, -104.88884195220137],
     quality: "Peligrosa",
     description: "Agua altamente contaminada, no debe ser usada.",
-    imageUrl: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=800"
+    imageUrl: "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?w=800",
+    trend: "worsening"
   },
   {
     id: "3",
@@ -24,7 +26,8 @@ const stationsData: Omit<Station, "lastUpdated">[] = [
     coordinates: [21.516758, -104.811909],
     quality: "Buena",
     description: "Agua en óptimas condiciones.",
-    imageUrl: "https://images.unsplash.com/photo-1439066615861-d1af74d74000?w=800"
+    imageUrl: "https://images.unsplash.com/photo-1439066615861-d1af74d74000?w=800",
+    trend: "improving"
   },
   {
     id: "4",
@@ -32,7 +35,8 @@ const stationsData: Omit<Station, "lastUpdated">[] = [
     coordinates: [21.414812193928924, -105.12698881963927],
     quality: "Buena",
     description: "Agua cristalina en óptimas condiciones.",
-    imageUrl: "https://images.unsplash.com/photo-1508167728150-326ba76d8297?w=800"
+    imageUrl: "https://images.unsplash.com/photo-1508167728150-326ba76d8297?w=800",
+    trend: "stable"
   },
   {
     id: "5",
@@ -40,7 +44,8 @@ const stationsData: Omit<Station, "lastUpdated">[] = [
     coordinates: [21.320345002104013, -105.055278545828],
     quality: "Buena",
     description: "Agua en excelente estado.",
-    imageUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800"
+    imageUrl: "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",
+    trend: "stable"
   },
   {
     id: "6",
@@ -48,7 +53,8 @@ const stationsData: Omit<Station, "lastUpdated">[] = [
     coordinates: [21.31053327955347, -104.89369957722249],
     quality: "Moderada",
     description: "Agua apta para riego.",
-    imageUrl: "https://images.unsplash.com/photo-1433838552652-f9a46b332c40?w=800"
+    imageUrl: "https://images.unsplash.com/photo-1433838552652-f9a46b332c40?w=800",
+    trend: "stable"
   }
 ];
 
