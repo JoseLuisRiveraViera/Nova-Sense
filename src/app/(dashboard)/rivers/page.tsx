@@ -1,10 +1,37 @@
+"use client";
+
+import { useState, useEffect } from 'react';
 import { InteractiveMap } from '@/components/map/InteractiveMap';
 import { generateMockStations } from '@/lib/mockData';
+import { lastUpdatedLabel } from '@/lib/time';
 import { Card, CardContent } from '@/components/ui/card';
-import { MapPin, Droplets, AlertTriangle } from 'lucide-react';
+import { MapPin, Droplets, AlertTriangle, RefreshCw } from 'lucide-react';
+import type { Station } from '@/types';
 
 export default function RiversPage() {
-  const stations = generateMockStations();
+  const [stations, setStations] = useState<Station[]>([]);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+
+  // Function to update stations
+  const updateStations = () => {
+    const newStations = generateMockStations();
+    setStations(newStations);
+    setLastUpdate(new Date());
+  };
+
+  // Initial load
+  useEffect(() => {
+    updateStations();
+  }, []);
+
+  // Auto-refresh every hour (3600000 ms = 1 hour)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      updateStations();
+    }, 3600000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const safeCount = stations.filter(s => s.quality === 'Buena').length;
   const cautionCount = stations.filter(s => s.quality === 'Moderada').length;
@@ -20,13 +47,20 @@ export default function RiversPage() {
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center">
                 <MapPin className="w-6 h-6 text-white" aria-hidden />
               </div>
-              <div>
+              <div className="flex-1">
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
                   Mapa de Fuentes de Agua
                 </h1>
-                <p className="text-slate-600">
-                  Explora el estado del agua en tiempo real en Nayarit
-                </p>
+                <div className="flex items-center gap-2 text-slate-600 text-sm">
+                  <span>Explora el estado del agua en tiempo real en Nayarit</span>
+                  <span className="hidden sm:inline">•</span>
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <RefreshCw className="w-3 h-3" aria-hidden />
+                    <span className="text-xs">
+                      {lastUpdatedLabel(lastUpdate)}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -65,7 +99,7 @@ export default function RiversPage() {
         {/* Map */}
         <div className="flex-1 px-4 lg:px-6 pb-4">
           <div className="h-[calc(100vh-280px)] min-h-[500px]">
-            <InteractiveMap stations={stations} />
+            {stations.length > 0 && <InteractiveMap stations={stations} lastUpdated={lastUpdate} />}
           </div>
         </div>
 
@@ -82,6 +116,8 @@ export default function RiversPage() {
                 <li>🔍 <strong>Usa los controles</strong> (derecha) para navegar.</li>
                 <li>📍 <strong>Encuentra tu ubicación</strong> con el botón de geolocalización.</li>
                 <li>🎯 <strong>Filtra fuentes</strong> por estado del agua.</li>
+                <li>🖱️ <strong>Usa la rueda del mouse</strong> para hacer zoom.</li>
+                <li>🔄 <strong>Actualización automática</strong> cada hora.</li>
               </ul>
             </div>
           </div>
@@ -96,7 +132,7 @@ export default function RiversPage() {
                 <li>✅ <strong>Agua verde:</strong> Segura al hervirla.</li>
                 <li>⚠️ <strong>Agua amarilla:</strong> Úsala solo para riego.</li>
                 <li>🚫 <strong>Agua roja:</strong> No la uses.</li>
-                <li>🕒 <strong>Datos simulados:</strong> se regeneran al cargar.</li>
+                <li>🕒 <strong>Datos en tiempo real:</strong> actualizados cada hora.</li>
               </ul>
             </div>
           </div>

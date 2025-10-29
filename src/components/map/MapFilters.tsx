@@ -1,161 +1,196 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Card } from '@/components/ui/card';
 import { Filter, X } from 'lucide-react';
-import { Station, WaterTrend } from '@/types';
-
-interface MapFiltersProps {
-  onFilterChange: (filters: FilterState) => void;
-}
+import { WaterQuality, WaterTrend } from '@/types';
+import { cn } from '@/lib/utils';
 
 export interface FilterState {
-  qualities: Set<Station['quality']>;
+  qualities: Set<WaterQuality>;
   trends: Set<WaterTrend>;
 }
 
-export function MapFilters({ onFilterChange }: MapFiltersProps) {
-  const [open, setOpen] = useState(false);
+interface MapFiltersProps {
+  onChange: (filters: FilterState) => void;
+  onOpenChange?: (open: boolean) => void;
+}
 
-  const [filters, setFilters] = useState<FilterState>({
-    qualities: new Set(['Buena', 'Moderada', 'Peligrosa']),
-    trends: new Set(['improving', 'stable', 'worsening']),
-  });
+const qualityOptions: { value: WaterQuality; label: string; color: string }[] = [
+  { value: 'Buena', label: '🟢 Segura', color: 'bg-emerald-500 hover:bg-emerald-600' },
+  { value: 'Moderada', label: '🟡 Precaución', color: 'bg-yellow-500 hover:bg-yellow-600' },
+  { value: 'Peligrosa', label: '🔴 Peligro', color: 'bg-red-500 hover:bg-red-600' },
+];
 
-  const handleQualityToggle = (quality: Station['quality']) => {
-    const qualities = new Set(filters.qualities);
-    qualities.has(quality) ? qualities.delete(quality) : qualities.add(quality);
-    const next = { ...filters, qualities };
-    setFilters(next);
-    onFilterChange(next);
+const trendOptions: { value: WaterTrend; label: string }[] = [
+  { value: 'improving', label: '↗ Mejorando' },
+  { value: 'stable', label: '→ Estable' },
+  { value: 'worsening', label: '↘ Empeorando' },
+];
+
+export function MapFilters({ onChange, onOpenChange }: MapFiltersProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedQualities, setSelectedQualities] = useState<Set<WaterQuality>>(
+    new Set(['Buena', 'Moderada', 'Peligrosa'])
+  );
+  const [selectedTrends, setSelectedTrends] = useState<Set<WaterTrend>>(
+    new Set(['improving', 'stable', 'worsening'])
+  );
+
+  useEffect(() => {
+    onChange({
+      qualities: selectedQualities,
+      trends: selectedTrends,
+    });
+  }, [selectedQualities, selectedTrends, onChange]);
+
+  // Notify parent when open state changes
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
+
+  const toggleQuality = (quality: WaterQuality) => {
+    setSelectedQualities(prev => {
+      const next = new Set(prev);
+      if (next.has(quality)) {
+        if (next.size > 1) next.delete(quality);
+      } else {
+        next.add(quality);
+      }
+      return next;
+    });
   };
 
-  const handleTrendToggle = (trend: Station['trend']) => {
-    if (!trend) return;
-    const trends = new Set(filters.trends);
-    trends.has(trend) ? trends.delete(trend) : trends.add(trend);
-    const next = { ...filters, trends };
-    setFilters(next);
-    onFilterChange(next);
+  const toggleTrend = (trend: WaterTrend) => {
+    setSelectedTrends(prev => {
+      const next = new Set(prev);
+      if (next.has(trend)) {
+        if (next.size > 1) next.delete(trend);
+      } else {
+        next.add(trend);
+      }
+      return next;
+    });
   };
 
-  const handleReset = () => {
-    const next: FilterState = {
-      qualities: new Set(['Buena', 'Moderada', 'Peligrosa']),
-      trends: new Set(['improving', 'stable', 'worsening']),
-    };
-    setFilters(next);
-    onFilterChange(next);
+  const resetFilters = () => {
+    setSelectedQualities(new Set(['Buena', 'Moderada', 'Peligrosa']));
+    setSelectedTrends(new Set(['improving', 'stable', 'worsening']));
   };
 
-  const activeFiltersCount = (3 - filters.qualities.size) + (3 - filters.trends.size);
+  const activeFiltersCount =
+    (3 - selectedQualities.size) + (3 - selectedTrends.size);
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      {open && (
-        <div
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-[3000] bg-slate-950/60 backdrop-blur-sm transition-opacity"
-          aria-hidden
-        />
-      )}
-
-      <SheetTrigger asChild>
-        <Button
-          variant="secondary"
-          className="absolute top-6 left-6 z-[1000] bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200 focus-visible:ring-2 focus-visible:ring-cyan-600"
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-controls="filters-panel"
-        >
-          <Filter className="w-4 h-4 mr-2 text-slate-700" aria-hidden />
-          Filtrar
-          {activeFiltersCount > 0 && <Badge variant="destructive" className="ml-2">{activeFiltersCount}</Badge>}
-        </Button>
-      </SheetTrigger>
-
-      <SheetContent
-        id="filters-panel"
-        side="right"
-        className="z-[3100] w-[400px] sm:w-[440px] p-0 border-0 rounded-l-2xl shadow-2xl bg-white/95 backdrop-blur-md"
-        aria-label="Panel de filtros"
+    <div className="relative">
+      {/* Toggle Button */}
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => setIsOpen(!isOpen)}
+        className="bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200"
+        aria-label="Filtros de mapa"
+        aria-expanded={isOpen}
       >
-        <SheetHeader className="sticky top-0 z-10 px-6 py-5 border-b bg-white/90 backdrop-blur-md">
-          <div className="flex items-start justify-between">
-            <div>
-              <SheetTitle className="text-xl font-bold text-slate-900">Filtrar Fuentes de Agua</SheetTitle>
-              <SheetDescription className="text-slate-600">Elige qué fuentes quieres ver en el mapa</SheetDescription>
+        <Filter className="w-4 h-4 mr-2" />
+        Filtros
+        {activeFiltersCount > 0 && (
+          <span className="ml-2 px-1.5 py-0.5 text-xs bg-cyan-600 text-white rounded-full font-bold">
+            {activeFiltersCount}
+          </span>
+        )}
+      </Button>
+
+      {/* Dropdown Panel */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-[-1]"
+            onClick={() => setIsOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Panel */}
+          <Card className="absolute top-full mt-2 left-0 w-64 p-3 shadow-xl border-2 border-slate-200 bg-white">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-sm text-slate-900">Filtrar fuentes</h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsOpen(false)}
+                className="h-6 w-6"
+                aria-label="Cerrar filtros"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              aria-label="Cerrar panel de filtros"
-              className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-600 hover:text-slate-800 hover:bg-slate-200/60"
+
+            {/* Quality Filters */}
+            <div className="space-y-2 mb-3">
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                Estado del agua
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {qualityOptions.map(option => (
+                  <Button
+                    key={option.value}
+                    variant={selectedQualities.has(option.value) ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => toggleQuality(option.value)}
+                    className={cn(
+                      "justify-start text-xs h-8",
+                      selectedQualities.has(option.value)
+                        ? `${option.color} text-white border-0`
+                        : 'bg-slate-50 hover:bg-slate-100'
+                    )}
+                    aria-pressed={selectedQualities.has(option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Trend Filters */}
+            <div className="space-y-2 mb-3">
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                Tendencia
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {trendOptions.map(option => (
+                  <Button
+                    key={option.value}
+                    variant={selectedTrends.has(option.value) ? 'secondary' : 'outline'}
+                    size="sm"
+                    onClick={() => toggleTrend(option.value)}
+                    className={cn(
+                      "justify-start text-xs h-8",
+                      selectedTrends.has(option.value)
+                        ? 'bg-slate-200 hover:bg-slate-300'
+                        : 'bg-slate-50 hover:bg-slate-100'
+                    )}
+                    aria-pressed={selectedTrends.has(option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reset Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetFilters}
+              className="w-full text-xs border-cyan-600 text-cyan-700 hover:bg-cyan-50"
             >
-              <X className="h-4 w-4" aria-hidden />
-            </button>
-          </div>
-        </SheetHeader>
-
-        <div className="px-6 pt-6 pb-20 space-y-6">
-          {/* Calidad del Agua */}
-          <section aria-labelledby="calidad-title">
-            <h3 id="calidad-title" className="font-semibold text-base text-slate-900">Calidad del Agua</h3>
-
-            <div className="mt-3 space-y-3">
-              <label htmlFor="buena" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="buena" checked={filters.qualities.has('Buena')} onCheckedChange={() => handleQualityToggle('Buena')} />
-                <span className="w-3 h-3 rounded-full bg-green-500" aria-hidden />
-                Agua segura
-              </label>
-
-              <label htmlFor="moderada" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="moderada" checked={filters.qualities.has('Moderada')} onCheckedChange={() => handleQualityToggle('Moderada')} />
-                <span className="w-3 h-3 rounded-full bg-yellow-500" aria-hidden />
-                Usar con precaución
-              </label>
-
-              <label htmlFor="peligrosa" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="peligrosa" checked={filters.qualities.has('Peligrosa')} onCheckedChange={() => handleQualityToggle('Peligrosa')} />
-                <span className="w-3 h-3 rounded-full bg-red-500" aria-hidden />
-                No usar
-              </label>
-            </div>
-          </section>
-
-          <div className="border-t border-slate-200/70" />
-
-          {/* Tendencia */}
-          <section aria-labelledby="tendencia-title">
-            <h3 id="tendencia-title" className="font-semibold text-base text-slate-900">Tendencia</h3>
-
-            <div className="mt-3 space-y-3">
-              <label htmlFor="improving" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="improving" checked={filters.trends.has('improving')} onCheckedChange={() => handleTrendToggle('improving')} />
-                📈 Mejorando
-              </label>
-
-              <label htmlFor="stable" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="stable" checked={filters.trends.has('stable')} onCheckedChange={() => handleTrendToggle('stable')} />
-                ➡️ Estable
-              </label>
-
-              <label htmlFor="worsening" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="worsening" checked={filters.trends.has('worsening')} onCheckedChange={() => handleTrendToggle('worsening')} />
-                📉 Deteriorando
-              </label>
-            </div>
-          </section>
-        </div>
-
-        <div className="absolute bottom-0 left-0 w-full px-6 py-4 border-t bg-white/95 backdrop-blur-md rounded-bl-2xl">
-          <Button variant="outline" onClick={handleReset} className="w-full">
-            <X className="w-4 h-4 mr-2" aria-hidden /> Limpiar filtros
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+              Restablecer filtros
+            </Button>
+          </Card>
+        </>
+      )}
+    </div>
   );
 }

@@ -1,13 +1,18 @@
 "use client";
 
 import dynamic from 'next/dynamic';
+import { useState, useEffect } from 'react';
 import { Station } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useMapSelection } from './useMapSelection';
+import { StationDrawer } from './StationDrawer';
 
 const LeafletMap = dynamic(
   () => import('./LeafletMap').then(mod => ({ default: mod.LeafletMap })),
   { ssr: false, loading: () => <MapSkeleton /> }
 );
+
+export type DisplayMode = 'popup' | 'panel' | 'bottomsheet';
 
 interface InteractiveMapProps {
   stations: Station[];
@@ -44,5 +49,41 @@ function MapSkeleton() {
 }
 
 export function InteractiveMap({ stations }: InteractiveMapProps) {
-  return <LeafletMap stations={stations} />;
+  const { selectedStation, isOpen, selectStation, handleOpenChange } = useMapSelection();
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect if mobile on mount
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Auto-responsive: popup on desktop, drawer on mobile
+  const displayMode: DisplayMode = isMobile ? 'bottomsheet' : 'popup';
+
+  return (
+    <>
+      <LeafletMap
+        stations={stations}
+        displayMode={displayMode}
+        onStationSelect={displayMode === 'bottomsheet' ? selectStation : undefined}
+        hideControls={isMobile && isOpen}
+      />
+      
+      {/* Only render drawer on mobile */}
+      {isMobile && (
+        <StationDrawer
+          station={selectedStation}
+          open={isOpen}
+          onOpenChange={handleOpenChange}
+        />
+      )}
+    </>
+  );
 }

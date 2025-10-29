@@ -1,19 +1,17 @@
 "use client";
 
-import { useMemo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { useMemo, useState, useCallback, useEffect } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Station } from '@/types';
+import { Station, WaterQuality } from '@/types';
 import { StationCard } from './StationCard';
 import { MapControls } from './MapControls';
 import { MapLegend } from './MapLegend';
 import { MapFilters, FilterState } from './MapFilters';
-import { generateMockReadings } from '@/lib/mockData';
-import { createCustomIcon, tileLayerConfig, mapConfig } from '@/lib/mapHelpers';
+import type { DisplayMode } from './InteractiveMap';
 
-// Fix de iconos Leaflet en Next.js
+// Fix Leaflet icons in Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -21,19 +19,58 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-interface LeafletMapProps { stations: Station[]; }
+interface LeafletMapProps {
+  stations: Station[];
+  displayMode?: DisplayMode;
+  onStationSelect?: (station: Station | null) => void;
+  hideControls?: boolean;
+}
 
-export function LeafletMap({ stations }: LeafletMapProps) {
+// Component to expose map instance
+function MapController({ 
+  onMapReady 
+}: { 
+  onMapReady: (map: L.Map) => void 
+}) {
+  const map = useMap();
+  
+  useEffect(() => {
+    onMapReady(map);
+  }, [map, onMapReady]);
+
+  return null;
+}
+
+// Get color by quality
+function getQualityColor(quality: WaterQuality): string {
+  switch (quality) {
+    case 'Buena':
+      return '#10B981'; // emerald-500
+    case 'Moderada':
+      return '#F59E0B'; // yellow-500
+    case 'Peligrosa':
+      return '#EF4444'; // red-500
+  }
+}
+
+export function LeafletMap({ 
+  stations, 
+  displayMode = 'popup', 
+  onStationSelect,
+  hideControls = false 
+}: LeafletMapProps) {
   const [filteredStations, setFilteredStations] = useState<Station[]>(stations);
+  const [map, setMap] = useState<L.Map | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const handleFilterChange = (filters: FilterState) => {
+  const handleFilterChange = useCallback((filters: FilterState) => {
     const filtered = stations.filter(station => {
       const q = filters.qualities.has(station.quality);
       const t = !station.trend || filters.trends.has(station.trend);
       return q && t;
     });
     setFilteredStations(filtered);
-  };
+  }, [stations]);
 
   const counts = useMemo(() => ({
     Buena: filteredStations.filter(s => s.quality === 'Buena').length,
@@ -41,65 +78,118 @@ export function LeafletMap({ stations }: LeafletMapProps) {
     Peligrosa: filteredStations.filter(s => s.quality === 'Peligrosa').length,
   }), [filteredStations]);
 
+  const handleMarkerClick = useCallback((station: Station) => {
+    if (displayMode !== 'popup' && onStationSelect) {
+      onStationSelect(station);
+    }
+  }, [displayMode, onStationSelect]);
+
+  // Control handlers
+  const handleZoomIn = () => map?.zoomIn();
+  const handleZoomOut = () => map?.zoomOut();
+  const handleLocate = () => map?.locate({ setView: true, maxZoom: 13 });
+  const handleReset = () => map?.setView([21.5, -104.9], 9);
+
   return (
     <div className="relative w-full h-full">
       <MapContainer
         id="rivers-map"
+        center={[21.5, -104.9]}
+        zoom={9}
+        scrollWheelZoom={true}
+        className="w-full h-full rounded-xl border-2 border-slate-200 shadow-lg z-0"
+        style={{ background: '#f1f5f9' }}
         aria-label="Mapa de fuentes de agua"
-        center={mapConfig.center}
-        zoom={mapConfig.zoom}
-        minZoom={mapConfig.minZoom}
-        maxZoom={mapConfig.maxZoom}
-        className="w-full h-full rounded-xl shadow-2xl border-2 border-slate-200 z-[1]"
-        zoomControl={false}
       >
-        <TileLayer {...tileLayerConfig} />
+        <MapController onMapReady={setMap} />
+        
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          className="map-tiles"
+        />
+
         {filteredStations.map((station) => {
-          const latestReading = generateMockReadings(station.id, 1)[0];
+          const position: [number, number] = [station.coordinates[0], station.coordinates[1]];
+          const color = getQualityColor(station.quality);
+
           return (
-            <Marker
+            <CircleMarker
               key={station.id}
-              position={station.coordinates} // [lat, lng] ✅
-              icon={createCustomIcon(station.quality)}
+              center={position}
+              radius={10}
+              pathOptions={{
+                fillColor: color,
+                fillOpacity: 0.8,
+                color: '#fff',
+                weight: 3,
+              }}
+              eventHandlers={{
+                click: () => handleMarkerClick(station),
+              }}
             >
-              <Popup
-                /* estilos vienen de globals.css */
-                maxWidth={320}
-                minWidth={280}
-                closeButton={true}
-                autoPan
-                autoPanPadding={[24, 96]}
-              >
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: renderToStaticMarkup(
-                      <StationCard
-                        station={station}
-                        latestReading={latestReading}
-                        showDetailsButton
-                      />
-                    )
-                  }}
-                />
-              </Popup>
-            </Marker>
+              {displayMode === 'popup' && (
+                <Popup
+                  maxWidth={300}
+                  minWidth={280}
+                  autoPan={true}
+                  autoPanPadding={[50, 50]}
+                  closeButton={true}
+                  className="station-popup"
+                >
+                  <StationCard station={station} />
+                </Popup>
+              )}
+            </CircleMarker>
           );
         })}
-
-        <MapControls />
       </MapContainer>
 
-      <MapLegend counts={counts} />
-      <MapFilters onFilterChange={handleFilterChange} />
-
-      {/* Burbuja: a la derecha, sin tapar el popup */}
-      <div className="absolute top-6 right-[88px] sm:right-28 z-[900] pointer-events-none" aria-live="polite">
-        <div className="bg-white/95 backdrop-blur-sm px-5 py-2 rounded-full shadow-md border border-slate-200">
-          <p className="text-xs font-medium text-slate-700">
-            Mostrando <span className="font-bold text-cyan-600">{filteredStations.length}</span> de {stations.length} fuentes de agua
-          </p>
+      {/* Map Controls - Hidden when drawer is open on mobile */}
+      {!hideControls && (
+        <div className="absolute top-4 right-4 z-[500]">
+          <MapControls
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onLocate={handleLocate}
+            onReset={handleReset}
+          />
         </div>
-      </div>
+      )}
+
+      {/* Filters - Hidden when drawer is open on mobile */}
+      {!hideControls && (
+        <div className={`absolute top-4 left-4 max-w-[90vw] sm:max-w-none ${isFilterOpen ? 'z-[600]' : 'z-[500]'}`}>
+          <MapFilters 
+            onChange={handleFilterChange}
+            onOpenChange={setIsFilterOpen}
+          />
+        </div>
+      )}
+
+      {/* Legend - Hidden when drawer is open on mobile */}
+      {!hideControls && (
+        <div className="absolute bottom-16 left-4 z-[500]">
+          <MapLegend counts={counts} />
+        </div>
+      )}
+
+      {/* Count Badge - Hidden when drawer is open on mobile */}
+      {!hideControls && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[500]">
+          <div
+            className="bg-white/95 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg shadow-lg border-2 border-cyan-200"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <p className="text-xs sm:text-sm font-semibold text-slate-900 whitespace-nowrap">
+              Mostrando <span className="text-cyan-600">{filteredStations.length}</span> de{' '}
+              <span className="text-cyan-600">{stations.length}</span> fuentes
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

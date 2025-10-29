@@ -124,8 +124,13 @@
    Estilos personalizados para Leaflet (NovaSense)
    ============================================== */
 
+/* Importar Leaflet CSS */
+@import 'leaflet/dist/leaflet.css';
+
 /* Container del mapa */
-.leaflet-container { font-family: inherit; }
+.leaflet-container {
+  font-family: inherit;
+}
 
 /* Popups compactos y redondeados */
 .leaflet-popup-content-wrapper {
@@ -137,6 +142,7 @@
   max-width: none !important;
   width: auto !important;
 }
+
 .leaflet-popup-content {
   margin: 0 !important;
   width: 280px !important;
@@ -144,36 +150,59 @@
   min-width: 280px !important;
   line-height: 1 !important;
 }
+
 /* Posición y punta */
-.leaflet-popup { bottom: 20px !important; }
+.leaflet-popup {
+  bottom: 20px !important;
+}
+
 .leaflet-popup-tip-container {
-  width: 40px !important; height: 20px !important;
-  position: absolute !important; left: 50% !important;
-  margin-left: -20px !important; overflow: hidden !important;
+  width: 40px !important;
+  height: 20px !important;
+  position: absolute !important;
+  left: 50% !important;
+  margin-left: -20px !important;
+  overflow: hidden !important;
   pointer-events: none !important;
 }
+
 .leaflet-popup-tip {
-  width: 17px !important; height: 17px !important; padding: 1px !important;
-  margin: -10px auto 0 !important; pointer-events: auto !important;
+  width: 17px !important;
+  height: 17px !important;
+  padding: 1px !important;
+  margin: -10px auto 0 !important;
+  pointer-events: auto !important;
   transform: rotate(45deg) !important;
-  box-shadow: 0 3px 14px rgba(0,0,0,0.2) !important;
+  box-shadow: 0 3px 14px rgba(0, 0, 0, 0.2) !important;
   background: white !important;
   border: 2px solid rgb(226 232 240) !important;
 }
+
 /* Botón de cerrar (dejamos el default y lo estilizamos) */
 .leaflet-popup-close-button {
-  top: 8px !important; right: 8px !important;
+  top: 8px !important;
+  right: 8px !important;
   color: rgb(71 85 105) !important; /* slate-600 */
-  font-size: 20px !important; font-weight: 700 !important;
+  font-size: 20px !important;
+  font-weight: 700 !important;
   padding: 4px 8px !important;
 }
-.leaflet-popup-close-button:hover { color: rgb(15 23 42) !important; }
+
+.leaflet-popup-close-button:hover {
+  color: rgb(15 23 42) !important;
+}
 
 /* Marcadores personalizados */
-.custom-marker, .custom-cluster-icon { background: transparent !important; border: none !important; }
+.custom-marker,
+.custom-cluster-icon {
+  background: transparent !important;
+  border: none !important;
+}
 
 /* Ocultamos zoom default (usamos nuestros controles shadcn) */
-.leaflet-control-zoom { display: none !important; }
+.leaflet-control-zoom {
+  display: none !important;
+}
 
 /* Attribution */
 .leaflet-control-attribution {
@@ -186,11 +215,27 @@
 }
 
 /* Animación ligera marcadores */
-.leaflet-marker-icon { transition: transform 0.2s ease; }
-.leaflet-marker-icon:hover { transform: scale(1.1); z-index: 1000 !important; }
+.leaflet-marker-icon {
+  transition: transform 0.2s ease;
+}
+
+.leaflet-marker-icon:hover {
+  transform: scale(1.1);
+  z-index: 1000 !important;
+}
 
 /* Responsive */
 @media (max-width: 768px) {
-  .leaflet-popup-content-wrapper { max-width: 280px !important; }
-  .leaflet-control-attribution { font-size: 8px !important; }
+  .leaflet-popup-content-wrapper {
+    max-width: 280px !important;
+  }
+  .leaflet-control-attribution {
+    font-size: 8px !important;
+  }
 }
+
+
+
+
+
+

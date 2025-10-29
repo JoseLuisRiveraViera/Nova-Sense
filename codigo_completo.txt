@@ -1,13 +1,39 @@
 ﻿================================================================================
 ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\app\(dashboard)\rivers\page.tsx
 ================================================================================
+"use client";
+
+import { useState, useEffect } from 'react';
 import { InteractiveMap } from '@/components/map/InteractiveMap';
 import { generateMockStations } from '@/lib/mockData';
 import { Card, CardContent } from '@/components/ui/card';
-import { MapPin, Droplets, AlertTriangle } from 'lucide-react';
+import { MapPin, Droplets, AlertTriangle, RefreshCw } from 'lucide-react';
+import type { Station } from '@/types';
 
 export default function RiversPage() {
-  const stations = generateMockStations();
+  const [stations, setStations] = useState<Station[]>([]);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+
+  // Function to update stations
+  const updateStations = () => {
+    const newStations = generateMockStations();
+    setStations(newStations);
+    setLastUpdate(new Date());
+  };
+
+  // Initial load
+  useEffect(() => {
+    updateStations();
+  }, []);
+
+  // Auto-refresh every hour (3600000 ms = 1 hour)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      updateStations();
+    }, 3600000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   const safeCount = stations.filter(s => s.quality === 'Buena').length;
   const cautionCount = stations.filter(s => s.quality === 'Moderada').length;
@@ -23,13 +49,23 @@ export default function RiversPage() {
               <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center">
                 <MapPin className="w-6 h-6 text-white" aria-hidden />
               </div>
-              <div>
+              <div className="flex-1">
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900">
                   Mapa de Fuentes de Agua
                 </h1>
-                <p className="text-slate-600">
-                  Explora el estado del agua en tiempo real en Nayarit
-                </p>
+                <div className="flex items-center gap-2 text-slate-600 text-sm">
+                  <span>Explora el estado del agua en tiempo real en Nayarit</span>
+                  <span className="hidden sm:inline">â€¢</span>
+                  <div className="flex items-center gap-1 text-slate-500">
+                    <RefreshCw className="w-3 h-3" aria-hidden />
+                    <span className="text-xs">
+                      Actualizado: {lastUpdate.toLocaleTimeString('es-MX', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -68,7 +104,7 @@ export default function RiversPage() {
         {/* Map */}
         <div className="flex-1 px-4 lg:px-6 pb-4">
           <div className="h-[calc(100vh-280px)] min-h-[500px]">
-            <InteractiveMap stations={stations} />
+            {stations.length > 0 && <InteractiveMap stations={stations} />}
           </div>
         </div>
 
@@ -85,6 +121,8 @@ export default function RiversPage() {
                 <li>ðŸ” <strong>Usa los controles</strong> (derecha) para navegar.</li>
                 <li>ðŸ“ <strong>Encuentra tu ubicaciÃ³n</strong> con el botÃ³n de geolocalizaciÃ³n.</li>
                 <li>ðŸŽ¯ <strong>Filtra fuentes</strong> por estado del agua.</li>
+                <li>ðŸ–±ï¸ <strong>Usa la rueda del mouse</strong> para hacer zoom.</li>
+                <li>ðŸ”„ <strong>ActualizaciÃ³n automÃ¡tica</strong> cada hora.</li>
               </ul>
             </div>
           </div>
@@ -99,7 +137,7 @@ export default function RiversPage() {
                 <li>âœ… <strong>Agua verde:</strong> Segura al hervirla.</li>
                 <li>âš ï¸ <strong>Agua amarilla:</strong> Ãšsala solo para riego.</li>
                 <li>ðŸš« <strong>Agua roja:</strong> No la uses.</li>
-                <li>ðŸ•’ <strong>Datos simulados:</strong> se regeneran al cargar.</li>
+                <li>ðŸ•’ <strong>Datos en tiempo real:</strong> actualizados cada hora.</li>
               </ul>
             </div>
           </div>
@@ -115,13 +153,18 @@ ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\components\map\Interactiv
 "use client";
 
 import dynamic from 'next/dynamic';
+import { useState, useEffect } from 'react';
 import { Station } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useMapSelection } from './useMapSelection';
+import { StationDrawer } from './StationDrawer';
 
 const LeafletMap = dynamic(
   () => import('./LeafletMap').then(mod => ({ default: mod.LeafletMap })),
   { ssr: false, loading: () => <MapSkeleton /> }
 );
+
+export type DisplayMode = 'popup' | 'panel' | 'bottomsheet';
 
 interface InteractiveMapProps {
   stations: Station[];
@@ -158,7 +201,43 @@ function MapSkeleton() {
 }
 
 export function InteractiveMap({ stations }: InteractiveMapProps) {
-  return <LeafletMap stations={stations} />;
+  const { selectedStation, isOpen, selectStation, handleOpenChange } = useMapSelection();
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Detect if mobile on mount
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Auto-responsive: popup on desktop, drawer on mobile
+  const displayMode: DisplayMode = isMobile ? 'bottomsheet' : 'popup';
+
+  return (
+    <>
+      <LeafletMap
+        stations={stations}
+        displayMode={displayMode}
+        onStationSelect={displayMode === 'bottomsheet' ? selectStation : undefined}
+        hideControls={isMobile && isOpen}
+      />
+      
+      {/* Only render drawer on mobile */}
+      {isMobile && (
+        <StationDrawer
+          station={selectedStation}
+          open={isOpen}
+          onOpenChange={handleOpenChange}
+        />
+      )}
+    </>
+  );
 }
 
 ================================================================================
@@ -166,20 +245,18 @@ ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\components\map\LeafletMap
 ================================================================================
 "use client";
 
-import { useMemo, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { useMemo, useState, useCallback, useEffect } from 'react';
+import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Station } from '@/types';
+import { Station, WaterQuality } from '@/types';
 import { StationCard } from './StationCard';
 import { MapControls } from './MapControls';
 import { MapLegend } from './MapLegend';
 import { MapFilters, FilterState } from './MapFilters';
-import { generateMockReadings } from '@/lib/mockData';
-import { createCustomIcon, tileLayerConfig, mapConfig } from '@/lib/mapHelpers';
+import type { DisplayMode } from './InteractiveMap';
 
-// Fix de iconos Leaflet en Next.js
+// Fix Leaflet icons in Next.js
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
@@ -187,19 +264,58 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-interface LeafletMapProps { stations: Station[]; }
+interface LeafletMapProps {
+  stations: Station[];
+  displayMode?: DisplayMode;
+  onStationSelect?: (station: Station | null) => void;
+  hideControls?: boolean;
+}
 
-export function LeafletMap({ stations }: LeafletMapProps) {
+// Component to expose map instance
+function MapController({ 
+  onMapReady 
+}: { 
+  onMapReady: (map: L.Map) => void 
+}) {
+  const map = useMap();
+  
+  useEffect(() => {
+    onMapReady(map);
+  }, [map, onMapReady]);
+
+  return null;
+}
+
+// Get color by quality
+function getQualityColor(quality: WaterQuality): string {
+  switch (quality) {
+    case 'Buena':
+      return '#10B981'; // emerald-500
+    case 'Moderada':
+      return '#F59E0B'; // yellow-500
+    case 'Peligrosa':
+      return '#EF4444'; // red-500
+  }
+}
+
+export function LeafletMap({ 
+  stations, 
+  displayMode = 'popup', 
+  onStationSelect,
+  hideControls = false 
+}: LeafletMapProps) {
   const [filteredStations, setFilteredStations] = useState<Station[]>(stations);
+  const [map, setMap] = useState<L.Map | null>(null);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  const handleFilterChange = (filters: FilterState) => {
+  const handleFilterChange = useCallback((filters: FilterState) => {
     const filtered = stations.filter(station => {
       const q = filters.qualities.has(station.quality);
       const t = !station.trend || filters.trends.has(station.trend);
       return q && t;
     });
     setFilteredStations(filtered);
-  };
+  }, [stations]);
 
   const counts = useMemo(() => ({
     Buena: filteredStations.filter(s => s.quality === 'Buena').length,
@@ -207,65 +323,118 @@ export function LeafletMap({ stations }: LeafletMapProps) {
     Peligrosa: filteredStations.filter(s => s.quality === 'Peligrosa').length,
   }), [filteredStations]);
 
+  const handleMarkerClick = useCallback((station: Station) => {
+    if (displayMode !== 'popup' && onStationSelect) {
+      onStationSelect(station);
+    }
+  }, [displayMode, onStationSelect]);
+
+  // Control handlers
+  const handleZoomIn = () => map?.zoomIn();
+  const handleZoomOut = () => map?.zoomOut();
+  const handleLocate = () => map?.locate({ setView: true, maxZoom: 13 });
+  const handleReset = () => map?.setView([21.5, -104.9], 9);
+
   return (
     <div className="relative w-full h-full">
       <MapContainer
         id="rivers-map"
+        center={[21.5, -104.9]}
+        zoom={9}
+        scrollWheelZoom={true}
+        className="w-full h-full rounded-xl border-2 border-slate-200 shadow-lg z-0"
+        style={{ background: '#f1f5f9' }}
         aria-label="Mapa de fuentes de agua"
-        center={mapConfig.center}
-        zoom={mapConfig.zoom}
-        minZoom={mapConfig.minZoom}
-        maxZoom={mapConfig.maxZoom}
-        className="w-full h-full rounded-xl shadow-2xl border-2 border-slate-200 z-[1]"
-        zoomControl={false}
       >
-        <TileLayer {...tileLayerConfig} />
+        <MapController onMapReady={setMap} />
+        
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          className="map-tiles"
+        />
+
         {filteredStations.map((station) => {
-          const latestReading = generateMockReadings(station.id, 1)[0];
+          const position: [number, number] = [station.coordinates[0], station.coordinates[1]];
+          const color = getQualityColor(station.quality);
+
           return (
-            <Marker
+            <CircleMarker
               key={station.id}
-              position={station.coordinates} // [lat, lng] âœ…
-              icon={createCustomIcon(station.quality)}
+              center={position}
+              radius={10}
+              pathOptions={{
+                fillColor: color,
+                fillOpacity: 0.8,
+                color: '#fff',
+                weight: 3,
+              }}
+              eventHandlers={{
+                click: () => handleMarkerClick(station),
+              }}
             >
-              <Popup
-                /* estilos vienen de globals.css */
-                maxWidth={320}
-                minWidth={280}
-                closeButton={true}
-                autoPan
-                autoPanPadding={[24, 96]}
-              >
-                <div
-                  dangerouslySetInnerHTML={{
-                    __html: renderToStaticMarkup(
-                      <StationCard
-                        station={station}
-                        latestReading={latestReading}
-                        showDetailsButton
-                      />
-                    )
-                  }}
-                />
-              </Popup>
-            </Marker>
+              {displayMode === 'popup' && (
+                <Popup
+                  maxWidth={300}
+                  minWidth={280}
+                  autoPan={true}
+                  autoPanPadding={[50, 50]}
+                  closeButton={true}
+                  className="station-popup"
+                >
+                  <StationCard station={station} />
+                </Popup>
+              )}
+            </CircleMarker>
           );
         })}
-
-        <MapControls />
       </MapContainer>
 
-      <MapLegend counts={counts} />
-      <MapFilters onFilterChange={handleFilterChange} />
-
-      {/* Burbuja: a la derecha, sin tapar el popup */}
-      <div className="absolute top-6 right-[88px] sm:right-28 z-[900] pointer-events-none" aria-live="polite">
-        <div className="bg-white/95 backdrop-blur-sm px-5 py-2 rounded-full shadow-md border border-slate-200">
-          <p className="text-xs font-medium text-slate-700">
-            Mostrando <span className="font-bold text-cyan-600">{filteredStations.length}</span> de {stations.length} fuentes de agua
-          </p>
+      {/* Map Controls - Hidden when drawer is open on mobile */}
+      {!hideControls && (
+        <div className="absolute top-4 right-4 z-[500]">
+          <MapControls
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onLocate={handleLocate}
+            onReset={handleReset}
+          />
         </div>
-      </div>
+      )}
+
+      {/* Filters - Hidden when drawer is open on mobile */}
+      {!hideControls && (
+        <div className={`absolute top-4 left-4 max-w-[90vw] sm:max-w-none ${isFilterOpen ? 'z-[600]' : 'z-[500]'}`}>
+          <MapFilters 
+            onChange={handleFilterChange}
+            onOpenChange={setIsFilterOpen}
+          />
+        </div>
+      )}
+
+      {/* Legend - Hidden when drawer is open on mobile */}
+      {!hideControls && (
+        <div className="absolute bottom-16 left-4 z-[500]">
+          <MapLegend counts={counts} />
+        </div>
+      )}
+
+      {/* Count Badge - Hidden when drawer is open on mobile */}
+      {!hideControls && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[500]">
+          <div
+            className="bg-white/95 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg shadow-lg border-2 border-cyan-200"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <p className="text-xs sm:text-sm font-semibold text-slate-900 whitespace-nowrap">
+              Mostrando <span className="text-cyan-600">{filteredStations.length}</span> de{' '}
+              <span className="text-cyan-600">{stations.length}</span> fuentes
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -275,81 +444,120 @@ ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\components\map\MapControl
 ================================================================================
 "use client";
 
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Minus, Locate, RotateCcw } from 'lucide-react';
-import { useMap } from 'react-leaflet';
-import { mapConfig } from '@/lib/mapHelpers';
+import { ZoomIn, ZoomOut, Navigation, Maximize2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-export function MapControls() {
-  const map = useMap();
+interface MapControlsProps {
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onLocate?: () => void;
+  onReset?: () => void;
+  onFullscreen?: () => void;
+  className?: string;
+}
 
-  const handleZoomIn = () => map.zoomIn();
-  const handleZoomOut = () => map.zoomOut();
+export function MapControls({
+  onZoomIn,
+  onZoomOut,
+  onLocate,
+  onReset,
+  onFullscreen,
+  className
+}: MapControlsProps) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const handleLocate = () => {
-    if (!navigator.geolocation) {
-      alert('Tu navegador no soporta geolocalizaciÃ³n.');
-      return;
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const handleFullscreenClick = () => {
+    if (!document.fullscreenElement) {
+      const mapContainer = document.getElementById('rivers-map')?.parentElement;
+      mapContainer?.requestFullscreen();
+      onFullscreen?.();
+    } else {
+      document.exitFullscreen();
     }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        map.flyTo([position.coords.latitude, position.coords.longitude], 13, { duration: 1.5 });
-      },
-      () => {
-        alert('No se pudo obtener tu ubicaciÃ³n. Revisa permisos del navegador.');
-      }
-    );
-  };
-
-  const handleReset = () => {
-    map.setView(mapConfig.center, mapConfig.zoom, { animate: true });
   };
 
   return (
-    <div className="absolute top-6 right-6 z-[1000] flex flex-col gap-2" role="group" aria-label="Controles del mapa">
-      <Button
-        size="icon"
-        variant="secondary"
-        onClick={handleZoomIn}
-        className="bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200 focus-visible:ring-2 focus-visible:ring-cyan-600"
-        title="Acercar"
-        aria-label="Acercar"
-      >
-        <Plus className="w-5 h-5 text-slate-700" aria-hidden />
-      </Button>
+    <div className={cn("flex flex-col gap-2", className)} role="group" aria-label="Controles del mapa">
+      {/* Zoom Controls */}
+      <div className="flex flex-col gap-1 bg-white rounded-lg shadow-lg border-2 border-slate-200 p-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onZoomIn}
+          className="h-9 w-9 hover:bg-cyan-50 hover:text-cyan-700"
+          aria-label="Acercar mapa"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        
+        <div className="h-px bg-slate-200 mx-1" />
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onZoomOut}
+          className="h-9 w-9 hover:bg-cyan-50 hover:text-cyan-700"
+          aria-label="Alejar mapa"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+      </div>
 
-      <Button
-        size="icon"
-        variant="secondary"
-        onClick={handleZoomOut}
-        className="bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200 focus-visible:ring-2 focus-visible:ring-cyan-600"
-        title="Alejar"
-        aria-label="Alejar"
-      >
-        <Minus className="w-5 h-5 text-slate-700" aria-hidden />
-      </Button>
+      {/* Location & Reset */}
+      <div className="flex flex-col gap-1 bg-white rounded-lg shadow-lg border-2 border-slate-200 p-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onLocate}
+          className="h-9 w-9 hover:bg-cyan-50 hover:text-cyan-700"
+          aria-label="Encontrar mi ubicaciÃ³n"
+        >
+          <Navigation className="h-4 w-4" />
+        </Button>
+        
+        <div className="h-px bg-slate-200 mx-1" />
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onReset}
+          className="h-9 w-9 hover:bg-cyan-50 hover:text-cyan-700"
+          aria-label="Restablecer vista"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      </div>
 
-      <Button
-        size="icon"
-        variant="secondary"
-        onClick={handleLocate}
-        className="bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200 focus-visible:ring-2 focus-visible:ring-cyan-600"
-        title="Mi ubicaciÃ³n"
-        aria-label="Ir a mi ubicaciÃ³n"
-      >
-        <Locate className="w-5 h-5 text-cyan-600" aria-hidden />
-      </Button>
-
-      <Button
-        size="icon"
-        variant="secondary"
-        onClick={handleReset}
-        className="bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200 focus-visible:ring-2 focus-visible:ring-cyan-600"
-        title="Restablecer vista"
-        aria-label="Restablecer vista"
-      >
-        <RotateCcw className="w-5 h-5 text-slate-700" aria-hidden />
-      </Button>
+      {/* Fullscreen */}
+      {onFullscreen && (
+        <div className="bg-white rounded-lg shadow-lg border-2 border-slate-200 p-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleFullscreenClick}
+            className={cn(
+              "h-9 w-9 transition-colors",
+              isFullscreen
+                ? "bg-cyan-100 text-cyan-700 hover:bg-cyan-200"
+                : "hover:bg-cyan-50 hover:text-cyan-700"
+            )}
+            aria-label={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+          >
+            <Maximize2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
@@ -359,163 +567,198 @@ ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\components\map\MapFilters
 ================================================================================
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Card } from '@/components/ui/card';
 import { Filter, X } from 'lucide-react';
-import { Station, WaterTrend } from '@/types';
-
-interface MapFiltersProps {
-  onFilterChange: (filters: FilterState) => void;
-}
+import { WaterQuality, WaterTrend } from '@/types';
+import { cn } from '@/lib/utils';
 
 export interface FilterState {
-  qualities: Set<Station['quality']>;
+  qualities: Set<WaterQuality>;
   trends: Set<WaterTrend>;
 }
 
-export function MapFilters({ onFilterChange }: MapFiltersProps) {
-  const [open, setOpen] = useState(false);
+interface MapFiltersProps {
+  onChange: (filters: FilterState) => void;
+  onOpenChange?: (open: boolean) => void;
+}
 
-  const [filters, setFilters] = useState<FilterState>({
-    qualities: new Set(['Buena', 'Moderada', 'Peligrosa']),
-    trends: new Set(['improving', 'stable', 'worsening']),
-  });
+const qualityOptions: { value: WaterQuality; label: string; color: string }[] = [
+  { value: 'Buena', label: 'ðŸŸ¢ Segura', color: 'bg-emerald-500 hover:bg-emerald-600' },
+  { value: 'Moderada', label: 'ðŸŸ¡ PrecauciÃ³n', color: 'bg-yellow-500 hover:bg-yellow-600' },
+  { value: 'Peligrosa', label: 'ðŸ”´ Peligro', color: 'bg-red-500 hover:bg-red-600' },
+];
 
-  const handleQualityToggle = (quality: Station['quality']) => {
-    const qualities = new Set(filters.qualities);
-    qualities.has(quality) ? qualities.delete(quality) : qualities.add(quality);
-    const next = { ...filters, qualities };
-    setFilters(next);
-    onFilterChange(next);
+const trendOptions: { value: WaterTrend; label: string }[] = [
+  { value: 'improving', label: 'â†— Mejorando' },
+  { value: 'stable', label: 'â†’ Estable' },
+  { value: 'worsening', label: 'â†˜ Empeorando' },
+];
+
+export function MapFilters({ onChange, onOpenChange }: MapFiltersProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedQualities, setSelectedQualities] = useState<Set<WaterQuality>>(
+    new Set(['Buena', 'Moderada', 'Peligrosa'])
+  );
+  const [selectedTrends, setSelectedTrends] = useState<Set<WaterTrend>>(
+    new Set(['improving', 'stable', 'worsening'])
+  );
+
+  useEffect(() => {
+    onChange({
+      qualities: selectedQualities,
+      trends: selectedTrends,
+    });
+  }, [selectedQualities, selectedTrends, onChange]);
+
+  // Notify parent when open state changes
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
+
+  const toggleQuality = (quality: WaterQuality) => {
+    setSelectedQualities(prev => {
+      const next = new Set(prev);
+      if (next.has(quality)) {
+        if (next.size > 1) next.delete(quality);
+      } else {
+        next.add(quality);
+      }
+      return next;
+    });
   };
 
-  const handleTrendToggle = (trend: Station['trend']) => {
-    if (!trend) return;
-    const trends = new Set(filters.trends);
-    trends.has(trend) ? trends.delete(trend) : trends.add(trend);
-    const next = { ...filters, trends };
-    setFilters(next);
-    onFilterChange(next);
+  const toggleTrend = (trend: WaterTrend) => {
+    setSelectedTrends(prev => {
+      const next = new Set(prev);
+      if (next.has(trend)) {
+        if (next.size > 1) next.delete(trend);
+      } else {
+        next.add(trend);
+      }
+      return next;
+    });
   };
 
-  const handleReset = () => {
-    const next: FilterState = {
-      qualities: new Set(['Buena', 'Moderada', 'Peligrosa']),
-      trends: new Set(['improving', 'stable', 'worsening']),
-    };
-    setFilters(next);
-    onFilterChange(next);
+  const resetFilters = () => {
+    setSelectedQualities(new Set(['Buena', 'Moderada', 'Peligrosa']));
+    setSelectedTrends(new Set(['improving', 'stable', 'worsening']));
   };
 
-  const activeFiltersCount = (3 - filters.qualities.size) + (3 - filters.trends.size);
+  const activeFiltersCount =
+    (3 - selectedQualities.size) + (3 - selectedTrends.size);
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
-      {open && (
-        <div
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-[3000] bg-slate-950/60 backdrop-blur-sm transition-opacity"
-          aria-hidden
-        />
-      )}
-
-      <SheetTrigger asChild>
-        <Button
-          variant="secondary"
-          className="absolute top-6 left-6 z-[1000] bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200 focus-visible:ring-2 focus-visible:ring-cyan-600"
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          aria-controls="filters-panel"
-        >
-          <Filter className="w-4 h-4 mr-2 text-slate-700" aria-hidden />
-          Filtrar
-          {activeFiltersCount > 0 && <Badge variant="destructive" className="ml-2">{activeFiltersCount}</Badge>}
-        </Button>
-      </SheetTrigger>
-
-      <SheetContent
-        id="filters-panel"
-        side="right"
-        className="z-[3100] w-[400px] sm:w-[440px] p-0 border-0 rounded-l-2xl shadow-2xl bg-white/95 backdrop-blur-md"
-        aria-label="Panel de filtros"
+    <div className="relative">
+      {/* Toggle Button */}
+      <Button
+        variant="secondary"
+        size="sm"
+        onClick={() => setIsOpen(!isOpen)}
+        className="bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200"
+        aria-label="Filtros de mapa"
+        aria-expanded={isOpen}
       >
-        <SheetHeader className="sticky top-0 z-10 px-6 py-5 border-b bg-white/90 backdrop-blur-md">
-          <div className="flex items-start justify-between">
-            <div>
-              <SheetTitle className="text-xl font-bold text-slate-900">Filtrar Fuentes de Agua</SheetTitle>
-              <SheetDescription className="text-slate-600">Elige quÃ© fuentes quieres ver en el mapa</SheetDescription>
+        <Filter className="w-4 h-4 mr-2" />
+        Filtros
+        {activeFiltersCount > 0 && (
+          <span className="ml-2 px-1.5 py-0.5 text-xs bg-cyan-600 text-white rounded-full font-bold">
+            {activeFiltersCount}
+          </span>
+        )}
+      </Button>
+
+      {/* Dropdown Panel */}
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 z-[-1]"
+            onClick={() => setIsOpen(false)}
+            aria-hidden="true"
+          />
+
+          {/* Panel */}
+          <Card className="absolute top-full mt-2 left-0 w-64 p-3 shadow-xl border-2 border-slate-200 bg-white">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-sm text-slate-900">Filtrar fuentes</h3>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsOpen(false)}
+                className="h-6 w-6"
+                aria-label="Cerrar filtros"
+              >
+                <X className="h-4 w-4" />
+              </Button>
             </div>
-            <button
-              onClick={() => setOpen(false)}
-              aria-label="Cerrar panel de filtros"
-              className="inline-flex items-center justify-center h-8 w-8 rounded-md text-slate-600 hover:text-slate-800 hover:bg-slate-200/60"
+
+            {/* Quality Filters */}
+            <div className="space-y-2 mb-3">
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                Estado del agua
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {qualityOptions.map(option => (
+                  <Button
+                    key={option.value}
+                    variant={selectedQualities.has(option.value) ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => toggleQuality(option.value)}
+                    className={cn(
+                      "justify-start text-xs h-8",
+                      selectedQualities.has(option.value)
+                        ? `${option.color} text-white border-0`
+                        : 'bg-slate-50 hover:bg-slate-100'
+                    )}
+                    aria-pressed={selectedQualities.has(option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Trend Filters */}
+            <div className="space-y-2 mb-3">
+              <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide">
+                Tendencia
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {trendOptions.map(option => (
+                  <Button
+                    key={option.value}
+                    variant={selectedTrends.has(option.value) ? 'secondary' : 'outline'}
+                    size="sm"
+                    onClick={() => toggleTrend(option.value)}
+                    className={cn(
+                      "justify-start text-xs h-8",
+                      selectedTrends.has(option.value)
+                        ? 'bg-slate-200 hover:bg-slate-300'
+                        : 'bg-slate-50 hover:bg-slate-100'
+                    )}
+                    aria-pressed={selectedTrends.has(option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            {/* Reset Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetFilters}
+              className="w-full text-xs border-cyan-600 text-cyan-700 hover:bg-cyan-50"
             >
-              <X className="h-4 w-4" aria-hidden />
-            </button>
-          </div>
-        </SheetHeader>
-
-        <div className="px-6 pt-6 pb-20 space-y-6">
-          {/* Calidad del Agua */}
-          <section aria-labelledby="calidad-title">
-            <h3 id="calidad-title" className="font-semibold text-base text-slate-900">Calidad del Agua</h3>
-
-            <div className="mt-3 space-y-3">
-              <label htmlFor="buena" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="buena" checked={filters.qualities.has('Buena')} onCheckedChange={() => handleQualityToggle('Buena')} />
-                <span className="w-3 h-3 rounded-full bg-green-500" aria-hidden />
-                Agua segura
-              </label>
-
-              <label htmlFor="moderada" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="moderada" checked={filters.qualities.has('Moderada')} onCheckedChange={() => handleQualityToggle('Moderada')} />
-                <span className="w-3 h-3 rounded-full bg-yellow-500" aria-hidden />
-                Usar con precauciÃ³n
-              </label>
-
-              <label htmlFor="peligrosa" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="peligrosa" checked={filters.qualities.has('Peligrosa')} onCheckedChange={() => handleQualityToggle('Peligrosa')} />
-                <span className="w-3 h-3 rounded-full bg-red-500" aria-hidden />
-                No usar
-              </label>
-            </div>
-          </section>
-
-          <div className="border-t border-slate-200/70" />
-
-          {/* Tendencia */}
-          <section aria-labelledby="tendencia-title">
-            <h3 id="tendencia-title" className="font-semibold text-base text-slate-900">Tendencia</h3>
-
-            <div className="mt-3 space-y-3">
-              <label htmlFor="improving" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="improving" checked={filters.trends.has('improving')} onCheckedChange={() => handleTrendToggle('improving')} />
-                ðŸ“ˆ Mejorando
-              </label>
-
-              <label htmlFor="stable" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="stable" checked={filters.trends.has('stable')} onCheckedChange={() => handleTrendToggle('stable')} />
-                âž¡ï¸ Estable
-              </label>
-
-              <label htmlFor="worsening" className="flex items-center gap-2 cursor-pointer text-sm">
-                <Checkbox id="worsening" checked={filters.trends.has('worsening')} onCheckedChange={() => handleTrendToggle('worsening')} />
-                ðŸ“‰ Deteriorando
-              </label>
-            </div>
-          </section>
-        </div>
-
-        <div className="absolute bottom-0 left-0 w-full px-6 py-4 border-t bg-white/95 backdrop-blur-md rounded-bl-2xl">
-          <Button variant="outline" onClick={handleReset} className="w-full">
-            <X className="w-4 h-4 mr-2" aria-hidden /> Limpiar filtros
-          </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+              Restablecer filtros
+            </Button>
+          </Card>
+        </>
+      )}
+    </div>
   );
 }
 
@@ -524,68 +767,43 @@ ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\components\map\MapLegend.
 ================================================================================
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { WaterQuality } from '@/types';
 
-export interface MapLegendProps {
-  counts?: Record<WaterQuality, number>;
+interface MapLegendProps {
+  counts: Record<WaterQuality, number>;
 }
+
+const legendItems: { quality: WaterQuality; label: string; color: string }[] = [
+  { quality: 'Buena', label: 'Segura', color: 'bg-emerald-500' },
+  { quality: 'Moderada', label: 'PrecauciÃ³n', color: 'bg-yellow-500' },
+  { quality: 'Peligrosa', label: 'Peligro', color: 'bg-red-500' },
+];
 
 export function MapLegend({ counts }: MapLegendProps) {
   return (
-    <Card className="absolute bottom-6 left-6 z-[1000] bg-white/95 backdrop-blur-sm shadow-xl border-2 border-slate-200"
-          role="region" aria-label="Leyenda de estados del agua">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold text-slate-900">Estado del agua</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shadow-md" aria-hidden>
-            <CheckCircle2 className="w-4 h-4 text-white" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div>
-              <div className="font-medium text-sm text-slate-900">Agua segura</div>
-              <div className="text-xs text-slate-600">Apta para consumo</div>
+    <Card className="bg-white/95 backdrop-blur-sm p-3 shadow-lg border-2 border-slate-200">
+      <h3 className="text-xs font-bold text-slate-900 mb-2 uppercase tracking-wide">
+        Leyenda
+      </h3>
+      <div className="space-y-1.5">
+        {legendItems.map(item => (
+          <div key={item.quality} className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-3 h-3 rounded-full ${item.color} shrink-0`}
+                aria-hidden="true"
+              />
+              <span className="text-xs text-slate-700 font-medium">
+                {item.label}
+              </span>
             </div>
-            {counts && <Badge variant="outline" className="ml-1">{counts.Buena}</Badge>}
+            <span className="text-xs font-bold text-slate-900 tabular-nums">
+              {counts[item.quality]}
+            </span>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center shadow-md" aria-hidden>
-            <AlertTriangle className="w-4 h-4 text-white" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div>
-              <div className="font-medium text-sm text-slate-900">PrecauciÃ³n</div>
-              <div className="text-xs text-slate-600">Solo para riego</div>
-            </div>
-            {counts && <Badge variant="outline" className="ml-1">{counts.Moderada}</Badge>}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-md" aria-hidden>
-            <XCircle className="w-4 h-4 text-white" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div>
-              <div className="font-medium text-sm text-slate-900">No usar</div>
-              <div className="text-xs text-slate-600">Agua contaminada</div>
-            </div>
-            {counts && <Badge variant="outline" className="ml-1">{counts.Peligrosa}</Badge>}
-          </div>
-        </div>
-
-        <div className="pt-2 border-t border-slate-200">
-          <Badge variant="outline" className="text-xs bg-cyan-50 text-cyan-700 border-cyan-300">
-            Datos simulados
-          </Badge>
-        </div>
-      </CardContent>
+        ))}
+      </div>
     </Card>
   );
 }
@@ -593,226 +811,538 @@ export function MapLegend({ counts }: MapLegendProps) {
 ================================================================================
 ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\components\map\StationCard.tsx
 ================================================================================
-import { Station, Reading } from '@/types';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Droplet, Thermometer, Wind, Activity, TrendingUp, TrendingDown, BarChart3 } from 'lucide-react';
-import { getBackgroundByQuality, getBorderColorByQuality, getEmojiByQuality, getMessageByQuality } from '@/lib/mapHelpers';
+"use client";
+
+import { Station } from '@/types';
+import { Card } from '@/components/ui/card';
+import { StationDetails } from './StationDetails';
 
 interface StationCardProps {
   station: Station;
-  latestReading?: Reading;
-  showDetailsButton?: boolean;
+  onViewStats?: (id: string) => void;
 }
 
-export function StationCard({ station, latestReading, showDetailsButton = false }: StationCardProps) {
-  const bgGradient = getBackgroundByQuality(station.quality);
-  const borderColor = getBorderColorByQuality(station.quality);
-  const emoji = getEmojiByQuality(station.quality);
-  const message = getMessageByQuality(station.quality);
+export function StationCard({ station, onViewStats }: StationCardProps) {
+  return (
+    <Card className="border-0 shadow-none overflow-hidden">
+      <StationDetails station={station} onViewStats={onViewStats} compact={true} />
+    </Card>
+  );
+}
 
-  const getBadgeVariant = () => {
-    switch (station.quality) {
-      case 'Buena': return 'default';
-      case 'Moderada': return 'secondary';
-      case 'Peligrosa': return 'destructive';
-      default: return 'outline';
-    }
+================================================================================
+ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\components\map\StationDetails.tsx
+================================================================================
+"use client";
+
+import { Station } from '@/types';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { TrendingUp, TrendingDown, Minus, Droplets, ThermometerSun, TestTube, Activity } from 'lucide-react';
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
+
+interface StationDetailsProps {
+  station: Station;
+  onViewStats?: (id: string) => void;
+  compact?: boolean;
+}
+
+const qualityConfig = {
+  Buena: {
+    color: 'bg-emerald-500',
+    textColor: 'text-emerald-700',
+    bgLight: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+    label: 'âœ“ Segura',
+    emoji: 'ðŸ’§',
+    message: 'Puede tratarse para consumo'
+  },
+  Moderada: {
+    color: 'bg-yellow-500',
+    textColor: 'text-yellow-700',
+    bgLight: 'bg-yellow-50',
+    borderColor: 'border-yellow-200',
+    label: 'âš  PrecauciÃ³n',
+    emoji: 'âš ï¸',
+    message: 'Ãšsala solo para riego'
+  },
+  Peligrosa: {
+    color: 'bg-red-500',
+    textColor: 'text-red-700',
+    bgLight: 'bg-red-50',
+    borderColor: 'border-red-200',
+    label: 'â¨¯ Peligrosa',
+    emoji: 'ðŸš«',
+    message: 'No la uses bajo ninguna circunstancia'
+  }
+};
+
+const trendConfig = {
+  improving: {
+    icon: TrendingUp,
+    color: 'text-emerald-600',
+    label: 'Mejorando'
+  },
+  stable: {
+    icon: Minus,
+    color: 'text-slate-600',
+    label: 'Estable'
+  },
+  worsening: {
+    icon: TrendingDown,
+    color: 'text-red-600',
+    label: 'Empeorando'
+  }
+};
+
+export function StationDetails({ station, onViewStats, compact = false }: StationDetailsProps) {
+  const config = qualityConfig[station.quality];
+  const TrendIcon = trendConfig[station.trend].icon;
+
+  // Mock readings for display (en producciÃ³n vendrÃ­an de station.lastReading)
+  const readings = {
+    ph: 7.2,
+    turbidity: 8.5,
+    oxygen: 7.8,
+    temperature: 22.5
   };
 
   return (
-    <Card className={`w-[280px] rounded-2xl border ${borderColor} bg-gradient-to-br ${bgGradient} shadow-xl overflow-hidden`}>
+    <div className="flex flex-col gap-3">
+      {/* Image Header */}
       {station.imageUrl && (
-        <div className="w-full h-16 overflow-hidden">
-          <img src={station.imageUrl} alt={station.name} className="w-full h-full object-cover" />
+        <div className={cn(
+          "relative w-full overflow-hidden rounded-t-lg",
+          compact ? "h-14" : "h-20"
+        )}>
+          <img
+            src={station.imageUrl}
+            alt={`Vista de ${station.name}`}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
         </div>
       )}
 
-      <CardHeader className="pb-2 pt-2 px-3">
+      {/* Header Content */}
+      <div className={cn("px-3", station.imageUrl && "-mt-1")}>
         <div className="flex items-start justify-between gap-2">
-          <CardTitle className="text-sm font-bold text-slate-900 leading-tight">{station.name}</CardTitle>
-          <Badge variant={getBadgeVariant()} className="flex-shrink-0 text-[10px] px-2 py-0.5 rounded-full">
-            {station.quality}
+          <div className="flex-1 min-w-0">
+            <h3 className={cn(
+              "font-bold text-slate-900 truncate",
+              compact ? "text-sm" : "text-base"
+            )}>
+              {station.name}
+            </h3>
+            <div className={cn(
+              "flex items-center gap-1.5 mt-0.5",
+              compact ? "text-xs" : "text-sm"
+            )}>
+              <span className="text-slate-600">{config.emoji}</span>
+              <span className={cn("font-medium", config.textColor)}>
+                {config.message}
+              </span>
+            </div>
+          </div>
+          <Badge
+            variant="secondary"
+            className={cn(
+              config.color,
+              "text-white font-semibold shrink-0",
+              compact ? "text-xs px-2 py-0.5" : "text-sm px-2.5 py-1"
+            )}
+          >
+            {config.label}
           </Badge>
         </div>
-        <CardDescription className="text-[11px] font-medium text-slate-700 mt-1 leading-snug">
-          {emoji} {message}
-        </CardDescription>
-      </CardHeader>
 
-      <CardContent className="space-y-2 px-3 pb-2">
-        {station.description && (
-          <p className="text-[11px] text-slate-700 bg-white/80 rounded-md p-2 leading-snug">
+        {/* Description */}
+        {!compact && station.description && (
+          <p className="text-xs text-slate-600 mt-2 line-clamp-2">
             {station.description}
           </p>
         )}
+      </div>
 
-        {latestReading && (
-          <div className="grid grid-cols-2 gap-1.5" role="list" aria-label="ParÃ¡metros de calidad">
-            <div className="flex items-center gap-1.5 p-1.5 bg-white/80 rounded-md" role="listitem">
-              <Droplet className="w-3.5 h-3.5 text-blue-600" aria-hidden />
-              <div>
-                <div className="text-[10px] text-slate-600 leading-none">pH</div>
-                <div className="text-[12px] font-semibold text-slate-900 leading-none mt-0.5">{latestReading.ph.toFixed(1)}</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 p-1.5 bg-white/80 rounded-md" role="listitem">
-              <Wind className="w-3.5 h-3.5 text-slate-600" aria-hidden />
-              <div>
-                <div className="text-[10px] text-slate-600 leading-none">Turbidez (NTU)</div>
-                <div className="text-[12px] font-semibold text-slate-900 leading-none mt-0.5">{latestReading.turbidity.toFixed(1)}</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 p-1.5 bg-white/80 rounded-md" role="listitem">
-              <Activity className="w-3.5 h-3.5 text-cyan-600" aria-hidden />
-              <div>
-                <div className="text-[10px] text-slate-600 leading-none">OxÃ­geno (mg/L)</div>
-                <div className="text-[12px] font-semibold text-slate-900 leading-none mt-0.5">{latestReading.oxygen.toFixed(1)}</div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 p-1.5 bg-white/80 rounded-md" role="listitem">
-              <Thermometer className="w-3.5 h-3.5 text-orange-600" aria-hidden />
-              <div>
-                <div className="text-[10px] text-slate-600 leading-none">Temp. (Â°C)</div>
-                <div className="text-[12px] font-semibold text-slate-900 leading-none mt-0.5">{latestReading.temperature.toFixed(1)}</div>
-              </div>
-            </div>
+      {/* Indicators Grid */}
+      <div className={cn(
+        "grid grid-cols-2 gap-2 px-3",
+        compact && "gap-1.5"
+      )}>
+        <div className={cn(
+          "flex items-center gap-2 rounded-lg p-2 border",
+          config.bgLight,
+          config.borderColor
+        )}>
+          <TestTube className={cn(
+            config.textColor,
+            compact ? "w-3.5 h-3.5" : "w-4 h-4"
+          )} aria-hidden />
+          <div className="flex flex-col min-w-0">
+            <span className={cn(
+              "font-bold text-slate-900",
+              compact ? "text-xs" : "text-sm"
+            )}>
+              {readings.ph.toFixed(1)}
+            </span>
+            <span className={cn(
+              "text-slate-600 leading-none",
+              compact ? "text-[10px]" : "text-xs"
+            )}>
+              pH
+            </span>
           </div>
-        )}
+        </div>
 
-        {station.trend && (
-          <div className="flex items-center gap-1.5 p-1.5 bg-white/80 rounded-md">
-            {station.trend === 'improving' ? (
-              <>
-                <TrendingUp className="w-3.5 h-3.5 text-green-600" aria-hidden />
-                <span className="text-[11px] text-slate-700">Mejorando</span>
-              </>
-            ) : station.trend === 'worsening' ? (
-              <>
-                <TrendingDown className="w-3.5 h-3.5 text-red-600" aria-hidden />
-                <span className="text-[11px] text-slate-700">Deteriorando</span>
-              </>
-            ) : (
-              <span className="text-[11px] text-slate-700">Estable</span>
-            )}
+        <div className={cn(
+          "flex items-center gap-2 rounded-lg p-2 border",
+          config.bgLight,
+          config.borderColor
+        )}>
+          <Droplets className={cn(
+            config.textColor,
+            compact ? "w-3.5 h-3.5" : "w-4 h-4"
+          )} aria-hidden />
+          <div className="flex flex-col min-w-0">
+            <span className={cn(
+              "font-bold text-slate-900",
+              compact ? "text-xs" : "text-sm"
+            )}>
+              {readings.turbidity.toFixed(1)}
+            </span>
+            <span className={cn(
+              "text-slate-600 leading-none",
+              compact ? "text-[10px]" : "text-xs"
+            )}>
+              NTU
+            </span>
           </div>
-        )}
-      </CardContent>
+        </div>
 
-      {showDetailsButton && (
-        <CardFooter className="pt-0 pb-2 px-3">
-          <a
-            href={`/stats?station=${station.id}`}
-            className="w-full inline-flex items-center justify-center gap-1.5 h-8 text-[12px] font-semibold text-white bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 rounded-md transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-600"
-          >
-            <BarChart3 className="w-4 h-4" aria-hidden />
-            Ver estadÃ­sticas
-          </a>
-        </CardFooter>
-      )}
+        <div className={cn(
+          "flex items-center gap-2 rounded-lg p-2 border",
+          config.bgLight,
+          config.borderColor
+        )}>
+          <Activity className={cn(
+            config.textColor,
+            compact ? "w-3.5 h-3.5" : "w-4 h-4"
+          )} aria-hidden />
+          <div className="flex flex-col min-w-0">
+            <span className={cn(
+              "font-bold text-slate-900",
+              compact ? "text-xs" : "text-sm"
+            )}>
+              {readings.oxygen.toFixed(1)}
+            </span>
+            <span className={cn(
+              "text-slate-600 leading-none",
+              compact ? "text-[10px]" : "text-xs"
+            )}>
+              Oâ‚‚ mg/L
+            </span>
+          </div>
+        </div>
 
-      <div className="px-3 pb-2">
-        <div className="text-[10px] text-slate-500 text-center">
-          {station.lastUpdated.toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+        <div className={cn(
+          "flex items-center gap-2 rounded-lg p-2 border",
+          config.bgLight,
+          config.borderColor
+        )}>
+          <ThermometerSun className={cn(
+            config.textColor,
+            compact ? "w-3.5 h-3.5" : "w-4 h-4"
+          )} aria-hidden />
+          <div className="flex flex-col min-w-0">
+            <span className={cn(
+              "font-bold text-slate-900",
+              compact ? "text-xs" : "text-sm"
+            )}>
+              {readings.temperature.toFixed(1)}
+            </span>
+            <span className={cn(
+              "text-slate-600 leading-none",
+              compact ? "text-[10px]" : "text-xs"
+            )}>
+              Â°C
+            </span>
+          </div>
         </div>
       </div>
-    </Card>
+
+      {/* Trend (only in non-compact mode) */}
+      {!compact && (
+        <div className="flex items-center gap-2 px-3">
+          <TrendIcon className={cn("w-4 h-4", trendConfig[station.trend].color)} aria-hidden />
+          <span className="text-xs text-slate-600">
+            Tendencia: <span className="font-medium">{trendConfig[station.trend].label}</span>
+          </span>
+        </div>
+      )}
+
+      {/* CTA Button */}
+      <div className="px-3 pb-2">
+        <Button
+          asChild
+          variant="outline"
+          size={compact ? "sm" : "default"}
+          className="w-full border-2 border-cyan-600 text-cyan-700 hover:bg-cyan-50 hover:text-cyan-800 font-semibold"
+        >
+          <Link href={`/stats?station=${station.id}`}>
+            Ver estadÃ­sticas completas
+          </Link>
+        </Button>
+      </div>
+
+      {/* Last updated */}
+      <div className="px-3 pb-1">
+        <p className="text-[10px] text-slate-500 text-center">
+          Actualizado: {station.lastUpdated.toLocaleString('es-MX', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+        </p>
+      </div>
+    </div>
   );
+}
+
+================================================================================
+ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\components\map\StationDrawer.tsx
+================================================================================
+"use client";
+
+import { Station } from '@/types';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { StationDetails } from './StationDetails';
+import { MapPin } from 'lucide-react';
+
+interface StationDrawerProps {
+  station: Station | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function StationDrawer({ station, open, onOpenChange }: StationDrawerProps) {
+  if (!station) return null;
+
+  return (
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent
+        className="max-h-[85vh] flex flex-col"
+        aria-label={`Detalles de ${station.name}`}
+      >
+        {/* Handle */}
+        <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-slate-300 mt-3" aria-hidden />
+
+        {/* Header */}
+        <DrawerHeader className="px-4 pt-3 pb-2 shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center shrink-0">
+              <MapPin className="w-4 h-4 text-white" aria-hidden />
+            </div>
+            <DrawerTitle className="text-base font-bold text-slate-900">
+              InformaciÃ³n de la fuente
+            </DrawerTitle>
+          </div>
+        </DrawerHeader>
+
+        {/* Scrollable Content */}
+        <ScrollArea className="flex-1 overflow-auto">
+          <div className="pb-4">
+            <StationDetails station={station} compact={false} />
+          </div>
+        </ScrollArea>
+      </DrawerContent>
+    </Drawer>
+  );
+}
+
+================================================================================
+ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\components\map\StationPanel.tsx
+================================================================================
+"use client";
+
+import { Station } from '@/types';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { StationDetails } from './StationDetails';
+import { MapPin, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+
+interface StationPanelProps {
+  station: Station | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function StationPanel({ station, open, onOpenChange }: StationPanelProps) {
+  if (!station) return null;
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        side="right"
+        className="w-full sm:w-[420px] p-0 flex flex-col"
+        aria-label={`Detalles de ${station.name}`}
+      >
+        {/* Header */}
+        <SheetHeader className="px-4 py-3 border-b border-slate-200 shrink-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center shrink-0">
+                <MapPin className="w-4 h-4 text-white" aria-hidden />
+              </div>
+              <SheetTitle className="text-base font-bold text-slate-900 truncate">
+                InformaciÃ³n de la fuente
+              </SheetTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => onOpenChange(false)}
+              aria-label="Cerrar panel"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        </SheetHeader>
+
+        {/* Scrollable Content */}
+        <ScrollArea className="flex-1">
+          <div className="py-2">
+            <StationDetails station={station} compact={false} />
+          </div>
+        </ScrollArea>
+
+        {/* Footer hint */}
+        <div className="px-4 py-2 border-t border-slate-200 shrink-0">
+          <p className="text-xs text-slate-500 text-center">
+            Presiona <kbd className="px-1.5 py-0.5 bg-slate-100 border border-slate-300 rounded text-[10px] font-mono">Esc</kbd> para cerrar
+          </p>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+================================================================================
+ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\components\map\useMapSelection.ts
+================================================================================
+"use client";
+
+import { useState, useCallback } from 'react';
+import { Station } from '@/types';
+
+export function useMapSelection() {
+  const [selectedStation, setSelectedStation] = useState<Station | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const selectStation = useCallback((station: Station | null) => {
+    setSelectedStation(station);
+    setIsOpen(!!station);
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedStation(null);
+    setIsOpen(false);
+  }, []);
+
+  const handleOpenChange = useCallback((open: boolean) => {
+    setIsOpen(open);
+    if (!open) {
+      // Delay clearing selection to allow exit animation
+      setTimeout(() => setSelectedStation(null), 150);
+    }
+  }, []);
+
+  return {
+    selectedStation,
+    isOpen,
+    selectStation,
+    clearSelection,
+    handleOpenChange
+  };
 }
 
 ================================================================================
 ARCHIVO: C:\Users\aimbo\OneDrive\Desktop\novasense\src\lib\mapHelpers.ts
 ================================================================================
 import L from 'leaflet';
-import { Station } from '@/types';
+import { WaterQuality } from '@/types';
 
-/** Color del marcador por calidad */
-export function getColorByQuality(quality: Station['quality']): string {
-  switch (quality) {
-    case 'Buena': return '#10B981'; // emerald-500
-    case 'Moderada': return '#F59E0B'; // yellow-500
-    case 'Peligrosa': return '#EF4444'; // red-500
-    default: return '#3B82F6'; // blue-500
-  }
-}
+/**
+ * Creates custom marker icon based on water quality
+ */
+export function createCustomIcon(quality: WaterQuality): L.DivIcon {
+  const config = {
+    Buena: {
+      color: '#10B981',
+      emoji: 'ðŸ’§',
+      size: 32
+    },
+    Moderada: {
+      color: '#F59E0B',
+      emoji: 'âš ï¸',
+      size: 32
+    },
+    Peligrosa: {
+      color: '#EF4444',
+      emoji: 'ðŸš«',
+      size: 32
+    }
+  };
 
-/** Fondo del popup por calidad */
-export function getBackgroundByQuality(quality: Station['quality']): string {
-  switch (quality) {
-    case 'Buena': return 'from-green-50 to-emerald-50';
-    case 'Moderada': return 'from-yellow-50 to-orange-50';
-    case 'Peligrosa': return 'from-red-50 to-rose-50';
-    default: return 'from-blue-50 to-cyan-50';
-  }
-}
-
-/** Borde por calidad */
-export function getBorderColorByQuality(quality: Station['quality']): string {
-  switch (quality) {
-    case 'Buena': return 'border-green-300';
-    case 'Moderada': return 'border-yellow-300';
-    case 'Peligrosa': return 'border-red-300';
-    default: return 'border-blue-300';
-  }
-}
-
-/** Emoji por calidad */
-export function getEmojiByQuality(quality: Station['quality']): string {
-  switch (quality) {
-    case 'Buena': return 'âœ…';
-    case 'Moderada': return 'âš ï¸';
-    case 'Peligrosa': return 'ðŸš«';
-    default: return 'ðŸ’§';
-  }
-}
-
-/** Mensaje por calidad (lenguaje ciudadano) */
-export function getMessageByQuality(quality: Station['quality']): string {
-  switch (quality) {
-    case 'Buena': return 'Apta para consumo humano';
-    case 'Moderada': return 'Solo para riego â€” no consumir';
-    case 'Peligrosa': return 'No usar â€” agua contaminada';
-    default: return 'Estado desconocido';
-  }
-}
-
-/** Icono personalizado del marcador */
-export function createCustomIcon(quality: Station['quality']): L.DivIcon {
-  const color = getColorByQuality(quality);
-  const emoji = getEmojiByQuality(quality);
+  const { color, emoji, size } = config[quality];
 
   return L.divIcon({
     html: `
-      <div class="relative">
-        <div class="w-10 h-10 rounded-full flex items-center justify-center shadow-lg border-2 border-white" style="background-color:${color}">
-          <span class="text-lg">${emoji}</span>
-        </div>
-        <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3 h-3 rotate-45 border-r-2 border-b-2 border-white" style="background-color:${color}"></div>
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        background: ${color};
+        border: 3px solid white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        cursor: pointer;
+        transition: transform 0.2s ease;
+      " class="custom-marker">
+        ${emoji}
       </div>
     `,
-    className: 'custom-marker',
-    iconSize: [40, 40],
-    iconAnchor: [20, 40],
-    popupAnchor: [0, -40],
+    className: 'custom-marker-container',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2]
   });
 }
 
-/** Config de tiles */
+/**
+ * Tile layer configuration for OpenStreetMap
+ */
 export const tileLayerConfig = {
-  url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  maxZoom: 19,
+  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
 };
 
-/** Config inicial del mapa (Nayarit) */
+/**
+ * Default map configuration
+ */
 export const mapConfig = {
   center: [21.5, -104.9] as [number, number],
   zoom: 9,
   minZoom: 8,
   maxZoom: 18,
+  scrollWheelZoom: false
 };
 
 ================================================================================

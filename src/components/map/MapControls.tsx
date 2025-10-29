@@ -1,80 +1,119 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Minus, Locate, RotateCcw } from 'lucide-react';
-import { useMap } from 'react-leaflet';
-import { mapConfig } from '@/lib/mapHelpers';
+import { ZoomIn, ZoomOut, Navigation, Maximize2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-export function MapControls() {
-  const map = useMap();
+interface MapControlsProps {
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
+  onLocate?: () => void;
+  onReset?: () => void;
+  onFullscreen?: () => void;
+  className?: string;
+}
 
-  const handleZoomIn = () => map.zoomIn();
-  const handleZoomOut = () => map.zoomOut();
+export function MapControls({
+  onZoomIn,
+  onZoomOut,
+  onLocate,
+  onReset,
+  onFullscreen,
+  className
+}: MapControlsProps) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const handleLocate = () => {
-    if (!navigator.geolocation) {
-      alert('Tu navegador no soporta geolocalización.');
-      return;
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const handleFullscreenClick = () => {
+    if (!document.fullscreenElement) {
+      const mapContainer = document.getElementById('rivers-map')?.parentElement;
+      mapContainer?.requestFullscreen();
+      onFullscreen?.();
+    } else {
+      document.exitFullscreen();
     }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        map.flyTo([position.coords.latitude, position.coords.longitude], 13, { duration: 1.5 });
-      },
-      () => {
-        alert('No se pudo obtener tu ubicación. Revisa permisos del navegador.');
-      }
-    );
-  };
-
-  const handleReset = () => {
-    map.setView(mapConfig.center, mapConfig.zoom, { animate: true });
   };
 
   return (
-    <div className="absolute top-6 right-6 z-[1000] flex flex-col gap-2" role="group" aria-label="Controles del mapa">
-      <Button
-        size="icon"
-        variant="secondary"
-        onClick={handleZoomIn}
-        className="bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200 focus-visible:ring-2 focus-visible:ring-cyan-600"
-        title="Acercar"
-        aria-label="Acercar"
-      >
-        <Plus className="w-5 h-5 text-slate-700" aria-hidden />
-      </Button>
+    <div className={cn("flex flex-col gap-2", className)} role="group" aria-label="Controles del mapa">
+      {/* Zoom Controls */}
+      <div className="flex flex-col gap-1 bg-white rounded-lg shadow-lg border-2 border-slate-200 p-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onZoomIn}
+          className="h-9 w-9 hover:bg-cyan-50 hover:text-cyan-700"
+          aria-label="Acercar mapa"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        
+        <div className="h-px bg-slate-200 mx-1" />
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onZoomOut}
+          className="h-9 w-9 hover:bg-cyan-50 hover:text-cyan-700"
+          aria-label="Alejar mapa"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+      </div>
 
-      <Button
-        size="icon"
-        variant="secondary"
-        onClick={handleZoomOut}
-        className="bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200 focus-visible:ring-2 focus-visible:ring-cyan-600"
-        title="Alejar"
-        aria-label="Alejar"
-      >
-        <Minus className="w-5 h-5 text-slate-700" aria-hidden />
-      </Button>
+      {/* Location & Reset */}
+      <div className="flex flex-col gap-1 bg-white rounded-lg shadow-lg border-2 border-slate-200 p-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onLocate}
+          className="h-9 w-9 hover:bg-cyan-50 hover:text-cyan-700"
+          aria-label="Encontrar mi ubicación"
+        >
+          <Navigation className="h-4 w-4" />
+        </Button>
+        
+        <div className="h-px bg-slate-200 mx-1" />
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onReset}
+          className="h-9 w-9 hover:bg-cyan-50 hover:text-cyan-700"
+          aria-label="Restablecer vista"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      </div>
 
-      <Button
-        size="icon"
-        variant="secondary"
-        onClick={handleLocate}
-        className="bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200 focus-visible:ring-2 focus-visible:ring-cyan-600"
-        title="Mi ubicación"
-        aria-label="Ir a mi ubicación"
-      >
-        <Locate className="w-5 h-5 text-cyan-600" aria-hidden />
-      </Button>
-
-      <Button
-        size="icon"
-        variant="secondary"
-        onClick={handleReset}
-        className="bg-white/95 backdrop-blur-sm hover:bg-white shadow-lg border-2 border-slate-200 focus-visible:ring-2 focus-visible:ring-cyan-600"
-        title="Restablecer vista"
-        aria-label="Restablecer vista"
-      >
-        <RotateCcw className="w-5 h-5 text-slate-700" aria-hidden />
-      </Button>
+      {/* Fullscreen */}
+      {onFullscreen && (
+        <div className="bg-white rounded-lg shadow-lg border-2 border-slate-200 p-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleFullscreenClick}
+            className={cn(
+              "h-9 w-9 transition-colors",
+              isFullscreen
+                ? "bg-cyan-100 text-cyan-700 hover:bg-cyan-200"
+                : "hover:bg-cyan-50 hover:text-cyan-700"
+            )}
+            aria-label={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+          >
+            <Maximize2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

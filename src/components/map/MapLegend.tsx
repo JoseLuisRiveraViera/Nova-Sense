@@ -1,67 +1,42 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, AlertTriangle, XCircle } from 'lucide-react';
+import { Card } from '@/components/ui/card';
 import { WaterQuality } from '@/types';
 
-export interface MapLegendProps {
-  counts?: Record<WaterQuality, number>;
+interface MapLegendProps {
+  counts: Record<WaterQuality, number>;
 }
+
+const legendItems: { quality: WaterQuality; label: string; color: string }[] = [
+  { quality: 'Buena', label: 'Segura', color: 'bg-emerald-500' },
+  { quality: 'Moderada', label: 'Precaución', color: 'bg-yellow-500' },
+  { quality: 'Peligrosa', label: 'Peligro', color: 'bg-red-500' },
+];
 
 export function MapLegend({ counts }: MapLegendProps) {
   return (
-    <Card className="absolute bottom-6 left-6 z-[1000] bg-white/95 backdrop-blur-sm shadow-xl border-2 border-slate-200"
-          role="region" aria-label="Leyenda de estados del agua">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-sm font-semibold text-slate-900">Estado del agua</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center shadow-md" aria-hidden>
-            <CheckCircle2 className="w-4 h-4 text-white" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div>
-              <div className="font-medium text-sm text-slate-900">Agua segura</div>
-              <div className="text-xs text-slate-600">Apta para consumo</div>
+    <Card className="bg-white/95 backdrop-blur-sm p-3 shadow-lg border-2 border-slate-200">
+      <h3 className="text-xs font-bold text-slate-900 mb-2 uppercase tracking-wide">
+        Leyenda
+      </h3>
+      <div className="space-y-1.5">
+        {legendItems.map(item => (
+          <div key={item.quality} className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div
+                className={`w-3 h-3 rounded-full ${item.color} shrink-0`}
+                aria-hidden="true"
+              />
+              <span className="text-xs text-slate-700 font-medium">
+                {item.label}
+              </span>
             </div>
-            {counts && <Badge variant="outline" className="ml-1">{counts.Buena}</Badge>}
+            <span className="text-xs font-bold text-slate-900 tabular-nums">
+              {counts[item.quality]}
+            </span>
           </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded-full bg-yellow-500 flex items-center justify-center shadow-md" aria-hidden>
-            <AlertTriangle className="w-4 h-4 text-white" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div>
-              <div className="font-medium text-sm text-slate-900">Precaución</div>
-              <div className="text-xs text-slate-600">Solo para riego</div>
-            </div>
-            {counts && <Badge variant="outline" className="ml-1">{counts.Moderada}</Badge>}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center shadow-md" aria-hidden>
-            <XCircle className="w-4 h-4 text-white" />
-          </div>
-          <div className="flex items-center gap-2">
-            <div>
-              <div className="font-medium text-sm text-slate-900">No usar</div>
-              <div className="text-xs text-slate-600">Agua contaminada</div>
-            </div>
-            {counts && <Badge variant="outline" className="ml-1">{counts.Peligrosa}</Badge>}
-          </div>
-        </div>
-
-        <div className="pt-2 border-t border-slate-200">
-          <Badge variant="outline" className="text-xs bg-cyan-50 text-cyan-700 border-cyan-300">
-            Datos simulados
-          </Badge>
-        </div>
-      </CardContent>
+        ))}
+      </div>
     </Card>
   );
 }
