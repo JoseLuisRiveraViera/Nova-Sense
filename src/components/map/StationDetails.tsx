@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { TrendingUp, TrendingDown, Minus, Droplets, ThermometerSun, TestTube, Activity } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { RelativeTime } from '@/components/ui/relative-time';
 
 interface StationDetailsProps {
   station: Station;
@@ -37,7 +38,7 @@ const qualityConfig = {
     textColor: 'text-red-700',
     bgLight: 'bg-red-50',
     borderColor: 'border-red-200',
-    label: '⨯ Peligrosa',
+    label: '⛔ Peligrosa',
     emoji: '🚫',
     message: 'No la uses bajo ninguna circunstancia'
   }
@@ -263,12 +264,7 @@ export function StationDetails({ station, onViewStats, compact = false }: Statio
       {/* Last updated */}
       <div className="px-3 pb-1">
         <p className="text-[10px] text-slate-500 text-center">
-          Actualizado: {station.lastUpdated.toLocaleString('es-MX', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit'
-          })}
+          <RelativeTime date={station.lastUpdated} />
         </p>
       </div>
     </div>

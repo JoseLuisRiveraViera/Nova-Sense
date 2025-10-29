@@ -16,6 +16,7 @@ export type DisplayMode = 'popup' | 'panel' | 'bottomsheet';
 
 interface InteractiveMapProps {
   stations: Station[];
+  lastUpdated?: Date | string;
 }
 
 function MapSkeleton() {
@@ -48,7 +49,7 @@ function MapSkeleton() {
   );
 }
 
-export function InteractiveMap({ stations }: InteractiveMapProps) {
+export function InteractiveMap({ stations, lastUpdated }: InteractiveMapProps) {
   const { selectedStation, isOpen, selectStation, handleOpenChange } = useMapSelection();
   const [isMobile, setIsMobile] = useState(false);
 
@@ -72,18 +73,18 @@ export function InteractiveMap({ stations }: InteractiveMapProps) {
       <LeafletMap
         stations={stations}
         displayMode={displayMode}
-        onStationSelect={displayMode === 'bottomsheet' ? selectStation : undefined}
-        hideControls={isMobile && isOpen}
+        onStationSelect={selectStation}
+        hideControls={false}
+        lastUpdated={lastUpdated}
       />
-      
-      {/* Only render drawer on mobile */}
-      {isMobile && (
-        <StationDrawer
-          station={selectedStation}
-          open={isOpen}
-          onOpenChange={handleOpenChange}
-        />
-      )}
+
+      {displayMode === 'bottomsheet' && selectedStation && (
+      <StationDrawer
+        station={selectedStation}
+        open={isOpen}
+        onOpenChange={handleOpenChange}
+      />
+    )}
     </>
   );
 }

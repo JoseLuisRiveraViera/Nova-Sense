@@ -22,8 +22,9 @@ L.Icon.Default.mergeOptions({
 interface LeafletMapProps {
   stations: Station[];
   displayMode?: DisplayMode;
-  onStationSelect?: (station: Station | null) => void;
+  onStationSelect?: (station: Station) => void;
   hideControls?: boolean;
+  lastUpdated?: Date | string;  // ← AGREGAR ESTA LÍNEA
 }
 
 // Component to expose map instance
@@ -57,7 +58,8 @@ export function LeafletMap({
   stations, 
   displayMode = 'popup', 
   onStationSelect,
-  hideControls = false 
+  hideControls = false ,
+  lastUpdated
 }: LeafletMapProps) {
   const [filteredStations, setFilteredStations] = useState<Station[]>(stations);
   const [map, setMap] = useState<L.Map | null>(null);
@@ -170,7 +172,7 @@ export function LeafletMap({
       {/* Legend - Hidden when drawer is open on mobile */}
       {!hideControls && (
         <div className="absolute bottom-16 left-4 z-[500]">
-          <MapLegend counts={counts} />
+          <MapLegend counts={counts} lastUpdated={lastUpdated} />
         </div>
       )}
 
