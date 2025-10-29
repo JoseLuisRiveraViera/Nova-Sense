@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { InteractiveMap } from '@/components/map/InteractiveMap';
 import { generateMockStations } from '@/lib/mockData';
-import { lastUpdatedLabel } from '@/lib/time';
 import { Card, CardContent } from '@/components/ui/card';
 import { MapPin, Droplets, AlertTriangle, RefreshCw } from 'lucide-react';
 import type { Station } from '@/types';
@@ -57,7 +56,10 @@ export default function RiversPage() {
                   <div className="flex items-center gap-1 text-slate-500">
                     <RefreshCw className="w-3 h-3" aria-hidden />
                     <span className="text-xs">
-                      {lastUpdatedLabel(lastUpdate)}
+                      Actualizado: {lastUpdate.toLocaleTimeString('es-MX', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      })}
                     </span>
                   </div>
                 </div>
@@ -99,7 +101,7 @@ export default function RiversPage() {
         {/* Map */}
         <div className="flex-1 px-4 lg:px-6 pb-4">
           <div className="h-[calc(100vh-280px)] min-h-[500px]">
-            {stations.length > 0 && <InteractiveMap stations={stations} lastUpdated={lastUpdate} />}
+            {stations.length > 0 && <InteractiveMap stations={stations} />}
           </div>
         </div>
 
