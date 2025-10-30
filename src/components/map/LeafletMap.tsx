@@ -11,8 +11,10 @@ import { MapLegend } from './MapLegend';
 import { MapFilters, FilterState } from './MapFilters';
 import type { DisplayMode } from './InteractiveMap';
 
+type IconDefaultProto = { _getIconUrl?: () => string };
+
 // Fix Leaflet icons in Next.js
-delete (L.Icon.Default.prototype as any)._getIconUrl;
+delete (L.Icon.Default.prototype as unknown as IconDefaultProto)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
   iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',

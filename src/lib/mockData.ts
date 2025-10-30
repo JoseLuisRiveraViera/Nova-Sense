@@ -1,5 +1,5 @@
 // src/lib/mockData.ts
-import { Station, Reading, Alert, WaterQuality, WaterTrend } from "@/types";
+import { Station, Reading, Alert, WaterQuality } from "@/types";
 
 const stationsData: Omit<Station, "lastUpdated">[] = [
   {

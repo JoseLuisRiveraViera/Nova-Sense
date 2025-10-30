@@ -7,6 +7,7 @@ import { TrendingUp, TrendingDown, Minus, Droplets, ThermometerSun, TestTube, Ac
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { RelativeTime } from '@/components/ui/relative-time';
+import Image from 'next/image';
 
 interface StationDetailsProps {
   station: Station;
@@ -62,7 +63,7 @@ const trendConfig = {
   }
 };
 
-export function StationDetails({ station, onViewStats, compact = false }: StationDetailsProps) {
+export function StationDetails({ station, compact = false }: StationDetailsProps) {
   const config = qualityConfig[station.quality];
   const TrendIcon = trendConfig[station.trend].icon;
 
@@ -78,17 +79,24 @@ export function StationDetails({ station, onViewStats, compact = false }: Statio
     <div className="flex flex-col gap-3">
       {/* Image Header */}
       {station.imageUrl && (
-        <div className={cn(
-          "relative w-full overflow-hidden rounded-t-lg",
-          compact ? "h-14" : "h-20"
-        )}>
-          <img
-            src={station.imageUrl}
+        <div
+          className={cn(
+            "relative w-full overflow-hidden rounded-t-lg",
+            compact ? "h-14" : "h-20"
+          )}
+        >
+          <Image
+            src={station.imageUrl!}
             alt={`Vista de ${station.name}`}
-            className="w-full h-full object-cover"
+            fill
+            sizes="(max-width: 640px) 100vw, 100vw"
+            className="object-cover"
+            // opcional: si es la imagen principal del card
+            // priority={compact}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
         </div>
+
       )}
 
       {/* Header Content */}

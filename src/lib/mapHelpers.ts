@@ -1,5 +1,5 @@
-import L from 'leaflet';
-import { WaterQuality } from '@/types';
+//import L from 'leaflet';
+//import { WaterQuality } from '@/types';
 
 /**
  * Creates custom marker icon based on water quality

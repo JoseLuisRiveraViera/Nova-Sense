@@ -1,42 +1,40 @@
+// src/components/ui/relative-time.tsx
 "use client";
 
-import { useState, useEffect } from 'react';
-import { formatRelative } from '@/lib/time';
+import { useEffect, useMemo, useState } from "react";
+// asumo que ya tienes estos helpers:
+import { formatRelative } from "@/lib/time"; // devuelve "hace X min" etc.
 
-interface RelativeTimeProps {
-  date: Date | string;
-  prefix?: string;
+type Props = {
+  date: Date | string | number;
   className?: string;
-}
+  updateEvery?: number;   // ms (default 60s)
+  prefix?: string;        // ← nuevo
+  suffix?: string;        // ← opcional
+  initialNow?: number;    // ← opcional para hidratar igual que SSR
+};
 
-/**
- * Componente que muestra tiempo relativo y se actualiza automáticamente cada minuto
- * @param date - Fecha a mostrar (Date o string ISO)
- * @param prefix - Texto antes del tiempo relativo (default: "Última actualización: ")
- * @param className - Clases CSS opcionales
- */
-export function RelativeTime({ 
-  date, 
-  prefix = "Última actualización: ",
-  className = ""
-}: RelativeTimeProps) {
-  const [text, setText] = useState(() => formatRelative(date));
+export function RelativeTime({ date, className, updateEvery = 60000 }: Props) {
+  const [mounted, setMounted] = useState(false);
+  // congelamos "now" al montar y luego lo actualizamos por intervalo
+  const [now, setNow] = useState<number>(Date.now());
 
   useEffect(() => {
-    // Actualizar inmediatamente si cambia la fecha
-    setText(formatRelative(date));
+    setMounted(true);
+    const id = setInterval(() => setNow(Date.now()), updateEvery);
+    return () => clearInterval(id);
+  }, [updateEvery]);
 
-    // Actualizar cada 60 segundos
-    const interval = setInterval(() => {
-      setText(formatRelative(date));
-    }, 60000);
-
-    return () => clearInterval(interval);
-  }, [date]);
+  const label = useMemo(
+    () => formatRelative(new Date(date), new Date(now)),
+    [date, now]
+  );
 
   return (
-    <span className={className}>
-      {prefix}{text}
+    <span className={className} suppressHydrationWarning>
+      {mounted ? label : "\u00A0"}
     </span>
   );
 }
+
+export default RelativeTime;

@@ -1,6 +1,6 @@
   "use client"
 
-  import { CheckCircle2, AlertTriangle, XCircle, TrendingUp, TrendingDown, Droplets, MapPin } from "lucide-react";
+  import { CheckCircle2, AlertTriangle, XCircle, Droplets, MapPin } from "lucide-react";
   import Link from "next/link";
   import { Badge } from "@/components/ui/badge";
   import {
