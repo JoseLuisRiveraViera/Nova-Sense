@@ -35,7 +35,7 @@ const stationsData: Omit<Station, "lastUpdated">[] = [
     coordinates: [21.414812193928924, -105.12698881963927],
     quality: "Buena",
     description: "Agua cristalina en óptimas condiciones.",
-    imageUrl: "https://images.unsplash.com/photo-1508167728150-326ba76d8297?w=800",
+    imageUrl: "https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=800",
     trend: "stable"
   },
   {
