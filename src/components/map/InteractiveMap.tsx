@@ -74,17 +74,17 @@ export function InteractiveMap({ stations, lastUpdated }: InteractiveMapProps) {
         stations={stations}
         displayMode={displayMode}
         onStationSelect={selectStation}
-        hideControls={false}
+        hideControls={isMobile && isOpen}
         lastUpdated={lastUpdated}
       />
 
       {displayMode === 'bottomsheet' && selectedStation && (
-      <StationDrawer
-        station={selectedStation}
-        open={isOpen}
-        onOpenChange={handleOpenChange}
-      />
-    )}
+        <StationDrawer
+          station={selectedStation}
+          open={isOpen}
+          onOpenChange={handleOpenChange}
+        />
+      )}
     </>
   );
 }
