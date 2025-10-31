@@ -87,6 +87,7 @@ export function generateMockReadings(stationId: string, count: number = 24): Rea
   return readings;
 }
 
+// src/lib/mockData.ts
 export function generateMockAlerts(): Alert[] {
   const stations = generateMockStations();
   const alerts: Alert[] = [];
@@ -94,7 +95,7 @@ export function generateMockAlerts(): Alert[] {
   stations.forEach((station, idx) => {
     if (station.quality === "Peligrosa") {
       alerts.push({
-        id: `alert-${idx}`,
+        id: `alert-critical-${idx}`,
         stationId: station.id,
         stationName: station.name,
         type: "critical",
@@ -102,15 +103,26 @@ export function generateMockAlerts(): Alert[] {
         timestamp: new Date(Date.now() - Math.random() * 7200000),
         acknowledged: false
       });
-    } else if (station.quality === "Moderada" && Math.random() > 0.5) {
+    } else if (station.quality === "Moderada") {
       alerts.push({
-        id: `alert-${idx}`,
+        id: `alert-warning-${idx}`,
         stationId: station.id,
         stationName: station.name,
         type: "warning",
         message: `Calidad del agua por debajo del nivel óptimo`,
         timestamp: new Date(Date.now() - Math.random() * 7200000),
-        acknowledged: Math.random() > 0.7
+        acknowledged: false
+      });
+    } else if (station.quality === "Buena") {
+      // NUEVO: Alertas info para estaciones con buena calidad
+      alerts.push({
+        id: `alert-info-${idx}`,
+        stationId: station.id,
+        stationName: station.name,
+        type: "info",
+        message: `Calidad del agua en óptimas condiciones`,
+        timestamp: new Date(Date.now() - Math.random() * 7200000),
+        acknowledged: false
       });
     }
   });
