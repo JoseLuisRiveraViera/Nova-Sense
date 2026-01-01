@@ -9,7 +9,7 @@ export const metadata = {
   title: "Consultar IA (próximamente) — NovaSense",
   description: "Interfaz de chat placeholder para Fase 1 (sin backend).",
 }
-
+//demo chat
 const demoMessages: ChatMessage[] = [
   {
     id: "m-1",
